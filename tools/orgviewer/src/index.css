@@ -1,0 +1,539 @@
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-canvas: #f8fafc;
+  --bg-panel: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #cbd5e1;
+  --node-team-bg: #e0e7ff;
+  --node-person-bg: #d1fae5;
+  --node-component-bg: #fef3c7;
+  --node-border: #64748b;
+  --node-selected-bg: #fed7aa;
+  --node-selected-border: #ea580c;
+  --badge-bg: #1e293b;
+  --badge-text: #f8fafc;
+  --edge-parent-child: #334155;
+  --edge-membership: #94a3b8;
+  --edge-line-management: #2563eb;
+  --edge-authority: #b45309;
+  --edge-ownership: #047857;
+  --edge-dependency: #6d28d9;
+  --edge-label-bg: #ffffff;
+  --edge-label-text: #0f172a;
+  --edge-label-border: #cbd5e1;
+  --fold-circle-fill: #0f172a;
+  --fold-circle-empty: #ffffff;
+  --link: #1d4ed8;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-canvas: #0f172a;
+  --bg-panel: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --border: #334155;
+  --node-team-bg: #312e81;
+  --node-person-bg: #064e3b;
+  --node-component-bg: #78350f;
+  --node-border: #94a3b8;
+  --node-selected-bg: #7c2d12;
+  --node-selected-border: #fb923c;
+  --badge-bg: #f1f5f9;
+  --badge-text: #0f172a;
+  --edge-parent-child: #cbd5e1;
+  --edge-membership: #64748b;
+  --edge-line-management: #60a5fa;
+  --edge-authority: #fbbf24;
+  --edge-ownership: #34d399;
+  --edge-dependency: #a78bfa;
+  --edge-label-bg: #1e293b;
+  --edge-label-text: #f1f5f9;
+  --edge-label-border: #475569;
+  --fold-circle-fill: #f1f5f9;
+  --fold-circle-empty: #1e293b;
+  --link: #93c5fd;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+a {
+  color: var(--link);
+}
+
+.node-team {
+  background: var(--node-team-bg);
+  color: var(--text-primary);
+}
+.node-person {
+  background: var(--node-person-bg);
+  color: var(--text-primary);
+}
+.node-component {
+  background: var(--node-component-bg);
+  color: var(--text-primary);
+}
+
+.node-card.node-selected {
+  background: var(--node-selected-bg);
+  border-color: var(--node-selected-border);
+  border-width: 2px;
+}
+
+.react-flow__controls {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+.react-flow__controls button {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.reset-graph-button,
+.export-mermaid-button {
+  font-size: 15px;
+  line-height: 1;
+}
+.react-flow__attribution {
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+}
+
+.app-shell {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-nav-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-nav-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-brand-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.app-nav-link.active {
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  font-weight: 600;
+}
+
+.app-nav-orgapi {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.app-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Wraps a view's picker/toggles + graph canvas (see graph-canvas.tsx) so the canvas fills
+   exactly whatever height remains below the nav bar and this page's own chrome, instead of a
+   viewport-relative guess that ignores how much space they already take up. `position: relative`
+   makes it the containing block for .graph-toolbar, which floats over the canvas rather than
+   taking up its own row. */
+.view-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A view's picker + toggles, floated over the graph canvas as an overlay panel -- same visual
+   language as react-flow's own zoom/lock controls (.react-flow__controls above) so it reads as
+   part of the canvas's toolset rather than a separate page section. Positioned opposite
+   react-flow's default bottom-left Controls so the two never overlap. */
+.graph-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  box-shadow: var(--xy-controls-box-shadow, 0 1px 4px rgba(0, 0, 0, 0.15));
+  font-size: 13px;
+}
+
+.graph-toolbar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.node-card {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--node-border);
+  font-size: 13px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.node-card-primary {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-card-primary-hint {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.node-card-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.node-card-line.muted {
+  color: var(--text-secondary);
+}
+
+.node-card-line-label {
+  color: var(--text-secondary);
+}
+
+.node-card-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.node-card-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+a.node-card-count:hover {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+
+.node-card-badge {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  background: var(--badge-bg);
+  color: var(--badge-text);
+}
+
+.node-card-text {
+  cursor: text;
+  user-select: text;
+}
+
+.copy-button {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 3px;
+}
+
+.copy-button:hover {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+
+.node-card-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.node-card-select {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+}
+
+.edge-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--edge-label-bg);
+  color: var(--edge-label-text);
+  border: 1px solid var(--edge-label-border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: all;
+}
+
+.edge-label-text {
+  user-select: text;
+  cursor: text;
+}
+
+.edge-interaction-path {
+  cursor: grab;
+  pointer-events: stroke;
+}
+
+.edge-waypoint-handle {
+  stroke: var(--bg-panel);
+  stroke-width: 1.5px;
+  cursor: grab;
+  pointer-events: all;
+}
+
+.fold-toggle {
+  position: absolute;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid var(--node-border);
+  background: var(--fold-circle-empty);
+  color: var(--badge-text);
+  font-size: 9px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.fold-toggle.expanded {
+  width: 16px;
+  padding: 0;
+}
+
+.fold-toggle.folded {
+  background: var(--fold-circle-fill);
+}
+
+.fold-toggle-direct {
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.fold-toggle-total {
+  font-weight: 400;
+  font-size: 8px;
+  opacity: 0.75;
+}
+
+.fold-toggle-down {
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.fold-toggle-right {
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.reviewable-block {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.reviewable-block dt {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.positions-list,
+.record-list,
+.members-list {
+  margin: 0;
+  padding-left: 20px;
+}
+.muted {
+  color: var(--text-muted);
+}
+
+.node-card-details {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 11px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.node-card-details:hover {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+
+.entity-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.entity-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entity-type-badge {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--badge-bg);
+  color: var(--badge-text);
+}
+
+.entity-name {
+  margin: 0;
+}
+
+.entity-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.entity-card-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.entity-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 20px;
+  margin: 0;
+}
+
+.entity-field {
+  display: contents;
+}
+
+.entity-field dt {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.entity-field dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.entity-connection-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.entity-connection-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.entity-connection-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.entity-connection-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-canvas);
+  color: var(--link);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.entity-connection-chip:hover {
+  background: var(--bg-panel);
+  border-color: var(--node-border);
+}

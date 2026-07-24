@@ -1,0 +1,84 @@
+# See .pre-commit-config.yaml/validate.yml, which call the same Makefile targets, keeping the
+# three checks identical. Needs a Docker-capable runner (docker-in-docker, set up below); see
+# README's "Contributing" section for what that requires.
+
+image: docker:27-cli
+
+services:
+  - docker:27-dind
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+
+stages:
+  - validate
+
+validate:
+  stage: validate
+  variables:
+    GIT_DEPTH: "0" # full history -- the retirement-confirmation check needs `git worktree add` on an arbitrary base SHA, same as mr-diff-summary below
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make fmt
+    - make validate
+    - make check-team-hierarchy
+    - make check-retirement-confirmations BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}"
+    - make check-reviewable-expiration
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Separate from `validate` on purpose -- delete this job if examples/ goes away.
+validate-examples:
+  stage: validate
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make check-examples
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Same reasoning as validate-examples -- delete this job if tools/orgapi goes away.
+validate-orgapi:
+  stage: validate
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make check-orgapi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Same reasoning as validate-examples -- delete this job if tools/orgviewer goes away.
+validate-orgviewer:
+  stage: validate
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make check-orgviewer
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# GitHub equivalent: pr-diff-summary.yml, calling the same diff-summary/post-review-comment
+# targets with different PLATFORM/env values. Needs a GITLAB_MR_TOKEN CI/CD variable (project
+# access token, `api` scope) -- GitLab's built-in CI_JOB_TOKEN has known Notes-API permission
+# gaps. See README's "Contributing".
+mr-diff-summary:
+  stage: validate
+  variables:
+    GIT_DEPTH: "0" # full history -- `git worktree add` needs an arbitrary base SHA, which a shallow clone may lack
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make diff-summary BASE_SHA="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+    - make post-review-comment PLATFORM=gitlab
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "org-model/**/*"
+        - "org-model/*"
+  allow_failure: true

@@ -1,0 +1,503 @@
+{
+  "authority_line_types": {
+    "tech-lead": {
+      "description": "Gives technical direction for a team; not a formal management role.",
+      "documentation_url": "https://example.com/authority-lines/tech-lead",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "Tech Lead"
+    }
+  },
+  "authority_lines": {
+    "carol-lee-tech-lead": {
+      "deputy": null,
+      "end_date": null,
+      "person": "carol-lee",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "Functional/advisory authority only -- not line management, see docs/adr/0006.",
+        "owner": "cto"
+      },
+      "start_date": "2025-01-01",
+      "teams": [
+        "platform-squad"
+      ],
+      "type": "tech-lead",
+      "is_interim": false,
+      "is_deputy_interim": null,
+      "documentation_url": "https://example.com/authority-lines/carol-lee-tech-lead"
+    }
+  },
+  "component_types": {
+    "database": {
+      "description": "A database or data store.",
+      "documentation_url": "https://example.com/component-types/database",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "database"
+    },
+    "library": {
+      "description": "A shared code library.",
+      "documentation_url": "https://example.com/component-types/library",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "library"
+    },
+    "repository": {
+      "description": "A version-controlled source repository.",
+      "documentation_url": "https://example.com/component-types/repository",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "repository"
+    },
+    "service": {
+      "description": "A backend service or API.",
+      "documentation_url": "https://example.com/component-types/service",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "service"
+    },
+    "user-interface": {
+      "description": "An end-user-facing UI surface.",
+      "documentation_url": "https://example.com/component-types/user-interface",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "user interface"
+    }
+  },
+  "components": {
+    "billing-api": {
+      "dependency_components": [],
+      "description": "Core billing service.",
+      "documentation_url": "https://example.com/components/billing-api",
+      "is_end_user_facing": false,
+      "name": "Billing API",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "team": "platform-squad",
+      "type": "service"
+    },
+    "billing-ui": {
+      "dependency_components": [
+        "billing-api"
+      ],
+      "description": "Customer-facing billing dashboard.",
+      "documentation_url": "https://example.com/components/billing-ui",
+      "is_end_user_facing": true,
+      "name": "Billing UI",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "team": "platform-squad",
+      "type": "user-interface"
+    },
+    "billing-worker": {
+      "dependency_components": [
+        "billing-ui"
+      ],
+      "description": "Async billing job runner.",
+      "documentation_url": "https://example.com/components/billing-worker",
+      "is_end_user_facing": false,
+      "name": "Billing Worker",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "team": "platform-squad",
+      "type": "service"
+    }
+  },
+  "formal_position_types": {
+    "software-engineer": {
+      "description": "Builds and maintains software components.",
+      "documentation_url": "https://example.com/growth/software-engineer",
+      "level": "mid",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "Software Engineer"
+    },
+    "vp-of-engineering": {
+      "description": "Owns engineering strategy and delivery across R&D.",
+      "documentation_url": "https://example.com/growth/vp-engineering",
+      "level": "vp",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "VP of Engineering"
+    }
+  },
+  "people": {
+    "alice-nguyen": {
+      "email": "alice.nguyen@example.com",
+      "extensions": {
+        "hr": {
+          "hiring_entity": "potuto",
+          "hiring_type": "internal"
+        }
+      },
+      "external_references": {
+        "github_accountname": "alicen"
+      },
+      "name": "Alice Nguyen",
+      "positions": [],
+      "primary_specialization": "backend",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "line_manager derived: heads Platform Squad, whose parent is R&D -> reports to vp-eng.",
+        "owner": "cto"
+      },
+      "secondary_specializations": [
+        "data-eng"
+      ],
+      "documentation_url": "https://example.com/people/alice-nguyen"
+    },
+    "bob-diaz": {
+      "email": "bob.diaz@example.com",
+      "extensions": {},
+      "external_references": {},
+      "name": "Bob Diaz",
+      "positions": [],
+      "primary_specialization": "backend",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "line_manager derived: Platform Squad's head_deputy -> reports to alice-nguyen.",
+        "owner": "cto"
+      },
+      "secondary_specializations": [],
+      "documentation_url": "https://example.com/people/bob-diaz"
+    },
+    "carol-lee": {
+      "email": "carol.lee@example.com",
+      "extensions": {
+        "hr": {
+          "hiring_entity": "other",
+          "hiring_type": "external"
+        }
+      },
+      "external_references": {
+        "github_accountname": "carollee"
+      },
+      "name": "Carol Lee",
+      "positions": [
+        {
+          "end_date": null,
+          "reviewable": {
+            "expiration_date": "2027-01-01",
+            "notes": "",
+            "owner": "cto"
+          },
+          "start_date": "2023-06-01",
+          "title": "Software Engineer (Backend) * Backend Owner @ Platform Squad | Tuto | R&D",
+          "type": "software-engineer"
+        }
+      ],
+      "primary_specialization": "backend",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "line_manager derived: primary team is Platform Squad -> reports to alice-nguyen. Holds two Roles (ownership) plus a Tech Lead AuthorityLine (functional) -- see docs/adr/0005.",
+        "owner": "cto"
+      },
+      "secondary_specializations": [
+        "frontend"
+      ],
+      "documentation_url": "https://example.com/people/carol-lee"
+    },
+    "cto": {
+      "email": "chris.osei@example.com",
+      "extensions": {},
+      "external_references": {},
+      "name": "Chris Osei",
+      "positions": [],
+      "primary_specialization": "engineering-leadership",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "Root of the org chart -- no parent team, no line manager.",
+        "owner": "cto"
+      },
+      "secondary_specializations": [],
+      "documentation_url": "https://example.com/people/cto"
+    },
+    "vp-eng": {
+      "email": "vera.popescu@example.com",
+      "extensions": {},
+      "external_references": {},
+      "name": "Vera Popescu",
+      "positions": [
+        {
+          "end_date": null,
+          "reviewable": {
+            "expiration_date": "2027-01-01",
+            "notes": "",
+            "owner": "cto"
+          },
+          "start_date": "2024-01-01",
+          "title": "VP of Engineering * R&D @ R&D | Potuto",
+          "type": "vp-of-engineering"
+        }
+      ],
+      "primary_specialization": "engineering-leadership",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "line_manager derived: heads R&D, whose parent is Potuto -> reports to cto.",
+        "owner": "cto"
+      },
+      "secondary_specializations": [],
+      "documentation_url": "https://example.com/people/vp-eng"
+    }
+  },
+  "roles": {
+    "backend-owner": {
+      "components": [
+        "billing-api"
+      ],
+      "description": "Owns backend services for the team.",
+      "documentation_url": "https://example.com/roles/backend-owner",
+      "name": "Backend Owner",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      }
+    },
+    "frontend-owner": {
+      "components": [
+        "billing-ui"
+      ],
+      "description": "Owns user-facing surfaces for the team.",
+      "documentation_url": "https://example.com/roles/frontend-owner",
+      "name": "Frontend Owner",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      }
+    }
+  },
+  "team_types": {
+    "chapter": {
+      "description": "Temporary discipline-aligned grouping.",
+      "documentation_url": "https://example.com/team-types/chapter",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "chapter"
+    },
+    "committee": {
+      "description": "Temporary decision-making body.",
+      "documentation_url": "https://example.com/team-types/committee",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "committee"
+    },
+    "department": {
+      "description": "Permanent, cross-cutting org unit.",
+      "documentation_url": "https://example.com/team-types/department",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "department"
+    },
+    "dev-team": {
+      "description": "Permanent product/feature delivery team.",
+      "documentation_url": "https://example.com/team-types/dev-team",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "dev team"
+    },
+    "guild": {
+      "description": "Temporary community of practice.",
+      "documentation_url": "https://example.com/team-types/guild",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "guild"
+    },
+    "organization": {
+      "description": "Top-level permanent org unit.",
+      "documentation_url": "https://example.com/team-types/organization",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "organization"
+    },
+    "platform": {
+      "description": "Permanent team owning shared platform capabilities.",
+      "documentation_url": "https://example.com/team-types/platform",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "platform"
+    },
+    "project": {
+      "description": "Temporary team scoped to a single initiative.",
+      "documentation_url": "https://example.com/team-types/project",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "project"
+    },
+    "squad": {
+      "description": "Temporary or semi-permanent cross-functional delivery team.",
+      "documentation_url": "https://example.com/team-types/squad",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "squad"
+    },
+    "working-group": {
+      "description": "Temporary group formed to solve a specific problem.",
+      "documentation_url": "https://example.com/team-types/working-group",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "title": "working group"
+    }
+  },
+  "teams": {
+    "platform-squad": {
+      "description": "Owns platform billing components.",
+      "documentation_url": "https://example.com/teams/platform-squad",
+      "head": "alice-nguyen",
+      "head_deputy": "bob-diaz",
+      "head_deputy_title": "Deputy Team Lead",
+      "head_title": "Team Lead",
+      "is_head_primary_team": true,
+      "is_head_deputy_primary_team": true,
+      "is_cross_functional": false,
+      "is_hierarchical": false,
+      "is_temporary": false,
+      "members": [
+        {
+          "deputy": null,
+          "is_primary_team": true,
+          "person": "carol-lee",
+          "role": "backend-owner",
+          "title": "Backend Owner",
+          "is_interim": false,
+          "is_deputy_interim": null
+        },
+        {
+          "deputy": null,
+          "is_primary_team": true,
+          "person": "carol-lee",
+          "role": "frontend-owner",
+          "title": "Frontend Owner",
+          "is_interim": false,
+          "is_deputy_interim": null
+        }
+      ],
+      "name": "Platform Squad",
+      "parent_team": "r-and-d",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "type": "squad",
+      "contact_email": "platform-squad@example.com",
+      "is_head_interim": false,
+      "is_head_deputy_interim": false
+    },
+    "potuto": {
+      "description": "Top-level organization.",
+      "documentation_url": "https://example.com/teams/potuto",
+      "head": "cto",
+      "head_deputy": null,
+      "head_deputy_title": null,
+      "head_title": "CTO",
+      "is_head_primary_team": true,
+      "is_head_deputy_primary_team": null,
+      "is_cross_functional": true,
+      "is_hierarchical": true,
+      "is_temporary": false,
+      "members": [],
+      "name": "Potuto",
+      "parent_team": null,
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "type": "organization",
+      "contact_email": "potuto@example.com",
+      "is_head_interim": false,
+      "is_head_deputy_interim": null
+    },
+    "r-and-d": {
+      "description": "Technology Engineering & Craft.",
+      "documentation_url": "https://example.com/teams/r-and-d",
+      "head": "vp-eng",
+      "head_deputy": null,
+      "head_deputy_title": null,
+      "head_title": "VP of Engineering",
+      "is_head_primary_team": true,
+      "is_head_deputy_primary_team": null,
+      "is_cross_functional": true,
+      "is_hierarchical": true,
+      "is_temporary": false,
+      "members": [],
+      "name": "R&D",
+      "parent_team": "potuto",
+      "reviewable": {
+        "expiration_date": "2027-01-01",
+        "notes": "",
+        "owner": "cto"
+      },
+      "type": "department",
+      "contact_email": "r-and-d@example.com",
+      "is_head_interim": false,
+      "is_head_deputy_interim": null
+    }
+  }
+}

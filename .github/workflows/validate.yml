@@ -1,0 +1,64 @@
+# See .pre-commit-config.yaml/.gitlab-ci.yml, which call the same Makefile targets, keeping the
+# three checks identical. ubuntu-latest ships Docker preinstalled, so no
+# setup-python/setup-node/setup-terraform action is needed; the Makefile builds the image on the
+# first target and reuses it for the rest.
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 -- the retirement-confirmation check below needs `git worktree add` on an
+      # arbitrary base SHA, same reasoning as pr-diff-summary.yml's checkout.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: terraform fmt
+        run: make fmt
+
+      - name: terraform validate
+        run: make validate
+
+      - name: team hierarchy cycle check
+        run: make check-team-hierarchy
+
+      - name: role/authority-line/head-deputy retirement confirmation check
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: make check-retirement-confirmations BASE_SHA="$BASE_SHA"
+
+      - name: reviewable expiration check (staleness + max horizon)
+        run: make check-reviewable-expiration
+
+  # Separate from `validate` on purpose -- delete this job if examples/ goes away.
+  validate-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: validate examples/
+        run: make check-examples
+
+  # Same reasoning as validate-examples -- delete this job if tools/orgapi goes away.
+  validate-orgapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: orgapi tests
+        run: make check-orgapi
+
+  # Same reasoning as validate-examples -- delete this job if tools/orgviewer goes away.
+  validate-orgviewer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: orgviewer tests
+        run: make check-orgviewer

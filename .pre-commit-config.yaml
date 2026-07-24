@@ -1,0 +1,67 @@
+# See .github/workflows/validate.yml/.gitlab-ci.yml, which call the same Makefile targets,
+# keeping the three checks identical. Requires only `make` and Docker on PATH; every hook runs
+# inside the root Dockerfile's image (RUN_IN_DOCKER defaults on), so python3/uv/Node/pnpm/
+# Terraform never need local install.
+repos:
+  - repo: local
+    hooks:
+      - id: terraform-fmt
+        name: terraform fmt
+        entry: make fmt
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
+      - id: terraform-validate
+        name: terraform validate (syntax/types only)
+        entry: make validate
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
+      - id: team-hierarchy-cycle-check
+        name: terraform plan + team hierarchy cycle check
+        entry: make check-team-hierarchy
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
+      # BASE_SHA defaults to origin/main (see Makefile) -- pre-commit has no PR base to compare
+      # against, unlike validate.yml/.gitlab-ci.yml.
+      - id: retirement-confirmation-check
+        name: role/authority-line/head-deputy retirement confirmation check
+        entry: make check-retirement-confirmations
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
+      - id: reviewable-expiration-check
+        name: reviewable expiration check (staleness + max horizon)
+        entry: make check-reviewable-expiration
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
+      # Separate from the hooks above on purpose -- delete this entry if examples/ goes away.
+      - id: terraform-examples-check
+        name: terraform validate examples/
+        entry: make check-examples
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
+      # Same reasoning as terraform-examples-check -- delete this entry if tools/orgapi goes away.
+      - id: orgapi-test
+        name: orgapi tests
+        entry: make check-orgapi
+        language: system
+        files: ^tools/orgapi/
+        pass_filenames: false
+
+      # Same reasoning as terraform-examples-check -- delete this entry if tools/orgviewer goes away.
+      - id: orgviewer-test
+        name: orgviewer tests
+        entry: make check-orgviewer
+        language: system
+        files: ^tools/orgviewer/
+        pass_filenames: false

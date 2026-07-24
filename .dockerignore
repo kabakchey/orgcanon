@@ -1,0 +1,13 @@
+# Mirrors .gitignore -- these are always empty or absent when the Dockerfile's manifest-only
+# COPY steps run, but excluding them keeps a stray local one from ever bloating the build
+# context or leaking into an image layer.
+.git/
+/.dist/
+tools/orgapi/.dist/
+tools/orgviewer/.dist/
+org-model/.terraform/
+examples/*/.terraform/
+tools/orgapi/tests/fixtures/orgdata/.terraform/
+tools/orgapi/.venv/
+tools/orgviewer/node_modules/
+**/__pycache__/

@@ -1,0 +1,33 @@
+# GitHub CODEOWNERS matches by file path only, last matching rule wins -- ordered here from
+# broadest fallback to most specific override. See org-model/main.tf for how the directories
+# below get composed, and the comment there for onboarding a new team.
+#
+# Replace the example @org/... handles below with your real GitHub team slugs.
+
+# Fallback: platform (the schema/mechanism owner) owns anything under org-model/ not
+# explicitly assigned below.
+/org-model/                          @org/platform-team
+
+# Team-owned data: each team's people/roles/authority-lines/components, at every level of the
+# hierarchy that has its own head (departments included, not just leaf squads). teams/<team>/
+# directories nest to mirror the org chart (a team's directory sits inside its parent_team's),
+# but CODEOWNERS matches by path prefix with last-match-wins, so nesting does NOT imply a parent
+# team's line covers its descendants -- add one explicit line per team, at its full nested path,
+# as new teams/.../<team>/ directories are created. None exist yet in this template, see
+# /examples/ for worked patterns.
+
+# common/ is organizational *content* (the root team record, the type vocabulary), not
+# engineering -- owned by the business side, not platform. validated/ (schema/validation) and
+# main.tf (module composition) stay platform-owned since those are mechanism, not content.
+/org-model/common/                   @org/people-ops
+/org-model/validated/                @org/platform-team
+/org-model/main.tf                   @org/platform-team
+
+# Illustrative only -- not real org data, owned by whoever maintains the framework itself.
+/examples/                           @org/platform-team
+
+# Everything outside org-model/ (ADRs, docs, the public-facing README) stays with platform
+# for now.
+/docs/                               @org/platform-team
+/CONTEXT.md                          @org/platform-team
+/README.md                           @org/platform-team

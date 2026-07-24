@@ -1,0 +1,17 @@
+# Everything any target in Makefile/tools/orgapi/Makefile/tools/orgviewer/Makefile writes back
+# into the working tree under RUN_IN_DOCKER=0 (Terraform plan/data cache, pytest cache, the
+# orgviewer build) -- see each Makefile's DIST_DIR. RUN_IN_DOCKER=1 (the default) never creates
+# these at all; each target's output lives in a named Docker volume instead.
+/.dist/
+tools/orgapi/.dist/
+tools/orgviewer/.dist/
+
+# Terraform's own local module/plugin cache, in case `terraform init` is ever run directly
+# instead of through Make (which redirects it into .dist/ above).
+org-model/.terraform/
+examples/*/.terraform/
+tools/orgapi/tests/fixtures/orgdata/.terraform/
+
+# orgapi (tools/orgapi/) -- Python venv, recreated by `uv sync`.
+tools/orgapi/.venv/
+**/__pycache__/
