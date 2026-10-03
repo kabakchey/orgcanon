@@ -1,0 +1,43 @@
+<<<<<<< HEAD
+# Informational only -- never blocks a PR. Posts a plain-English summary of team-membership,
+# component-dependency, and team-head changes as a PR comment. See scripts/summarize_org_diff.py,
+# scripts/post_review_comment.py, the `diff-summary` Makefile target, and
+# docs/superpowers/plans/2026-08-25-gitlab-parity.md. The GitLab equivalent lives in
+# .gitlab-ci.yml's mr-diff-summary job -- both call the exact same `make diff-summary` target
+# and the exact same scripts/post_review_comment.py script, just with different
+# --platform/env values.
+=======
+# Informational only -- never blocks a PR. GitLab equivalent: .gitlab-ci.yml's mr-diff-summary
+# job, calling the same diff-summary/post-review-comment Make targets with different
+# PLATFORM/REPO/PR_NUMBER values. Runs inside the root Dockerfile's image; `gh` lives in the
+# `terraform` stage for exactly this.
+>>>>>>> 3a054b3 (fix)
+name: PR org-data diff summary
+
+on:
+  pull_request:
+    paths:
+      - "org-model/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate diff summary
+        run: make diff-summary BASE_SHA="${{ github.event.pull_request.base.sha }}"
+
+      - name: Post PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          make post-review-comment PLATFORM=github \
+            REPO="${{ github.repository }}" \
+            PR_NUMBER="${{ github.event.pull_request.number }}"

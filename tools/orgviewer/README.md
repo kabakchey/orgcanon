@@ -68,6 +68,32 @@ saved to the browser's `localStorage` and used instead of the auto layout on fut
 Rearranging is entirely manual from that point on -- untouched connections still auto-follow a
 card you move, but nothing auto-avoids new overlaps the way the initial ELK layout does.
 
+Each view's picker is a collapsible tree with a filter box: teams nest by parent team, people by
+derived line manager, and components under their owning team. It opens fully expanded; branches
+you collapse stay collapsed until the page reloads. Typing filters to matching names
+plus their ancestors; arrow keys move and expand/collapse, Enter selects, Esc closes.
+
+Each view's toolbar state -- the picker selection and every checkbox -- lives in the URL's query
+string, so a copied link reopens the same view as it was. Defaults (the picker's default selection
+and each checkbox's default) are written into the URL as soon as the view opens. Each view also remembers the query string it was last left with (in
+`localStorage`), and the navigation links reopen it, so switching between views keeps every
+view's selection and checkboxes.
+
+Every graph has a legend in the bottom-right corner listing the kinds of connection currently on
+screen. It can be collapsed, and that choice is kept in the query string (`legend`).
+
+Any graph with foldable cards also gets "Fold all" (⊟) and "Unfold all" (⊞) buttons in the
+bottom-left controls. "Fold all" folds every foldable card, nested ones included, so expanding a
+card afterwards reveals one level at a time. Both choices are saved like a single card's fold.
+
+The camera (`zoom`, plus the pan as `x`/`y`) is part of the query string too, updated whenever it
+settles without adding history entries, so a reload or a copied link opens the graph exactly as it
+was framed. A graph whose URL has no camera yet is fitted to the screen when it first appears.
+After that, re-laying it out (folding, changing the selection or a checkbox, "Reset graph") keeps
+your zoom and holds one card still on screen: the card whose fold button you clicked, otherwise
+the selected card. If neither card is in both the old and the new layout, the camera stays where
+it was.
+
 ## Tests
 
 `tests/lib/orgapi/` -- the base-URL resolution/persistence, the orgapi fetch client (URL/query

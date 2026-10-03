@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { teamComponentsToFlow } from "../../../src/lib/relationships/team-components-to-flow";
+import { EDGE_STYLE } from "../../../src/components/edge-styles";
 import type { Component, Team } from "../../../src/lib/orgapi/types";
 
 function team(overrides: Partial<Team> & { head: string }): Team {
@@ -146,5 +147,21 @@ describe("teamComponentsToFlow", () => {
 
     const billingApi = nodes.find((n) => n.id === "component:billing-api");
     expect(billingApi?.data).toMatchObject({ documentationUrl: "https://example.com/components/billing-api" });
+  });
+});
+
+describe("teamComponentsToFlow non-hierarchical team edges", () => {
+  it("styles an indirect-mode team edge as non-hierarchical when either end is non-hierarchical", () => {
+    const teams: Record<string, Team> = {
+      root: team({ name: "Root", head: "a", is_hierarchical: true }),
+      group: team({ name: "Working Group", head: "b", parent_team: "root", is_hierarchical: false }),
+      squad: team({ name: "Squad", head: "d", parent_team: "root", is_hierarchical: true }),
+    };
+
+    const { edges } = teamComponentsToFlow("root", teams, {}, "indirect");
+    const styleOf = (id: string) => edges.find((e) => e.id === id)?.style;
+
+    expect(styleOf("hierarchy:root->group")).toEqual(EDGE_STYLE.nonHierarchical);
+    expect(styleOf("hierarchy:root->squad")).toEqual(EDGE_STYLE.parentChild);
   });
 });

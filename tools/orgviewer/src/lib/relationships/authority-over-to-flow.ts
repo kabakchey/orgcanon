@@ -1,10 +1,11 @@
 import type { Edge, Node } from "@xyflow/react";
-import { EDGE_STYLE } from "../../components/edge-styles";
+import { EDGE_STYLE, lineManagementStyle } from "../../components/edge-styles";
 import { getAuthorityLinesForTeam } from "./authority";
-import { getChainOfCommand } from "./line-management";
+import { deriveLineManagerLink, getChainOfCommand } from "./line-management";
+import { headDeputyEdges } from "./head-deputy-edges";
 import { derivePersonCardRoles } from "./person-roles";
 import { currentPositionTitle } from "./person-position";
-import { withInterimSuffix } from "./interim";
+import { deputyTitle, headDeputyTitle, headTitle, withInterimSuffix } from "./interim";
 import type { AuthorityLine, AuthorityLineType, Person, Team } from "../orgapi/types";
 
 function teamNode(teamId: string, team: Team | undefined): Node {
@@ -41,8 +42,9 @@ function personNode(personId: string, teams: Record<string, Team>, people: Recor
 
 // A team plus the people who hold an explicit authority line over it (no cascade to ancestor
 // teams), plus the team's own line-management chain -- its head, that head's derived manager,
-// and that manager's manager, up to the org root -- and nothing else: no org-tree membership
-// besides the head itself, no ancestor/sibling team nodes, and no authority holder's own personal
+// and that manager's manager, up to the org root -- plus deputies of the authority lines and of
+// every team those chain members head, and nothing else: no other org-tree membership, no
+// ancestor/sibling team nodes, and no authority holder's own personal
 // line-management chain (only the team's, via its head). The view is about these two
 // relationships layered on one team, not team composition (that's Team Components / Org Tree's
 // job).
@@ -69,6 +71,12 @@ export function authorityOverToFlow(
     ...chainNodeIds.map((id) => personNode(id, teams, people)),
   ];
 
+  const { deputyIds: headDeputyIds, edges: headDeputyEdgeList } = headDeputyEdges(chain, teams);
+  const shownIds = new Set(nodes.map((node) => node.id));
+  for (const id of new Set(headDeputyIds)) {
+    if (!shownIds.has(`person:${id}`)) nodes.push(personNode(id, teams, people));
+  }
+
   const edges: Edge[] = lines.map((line) => ({
     id: `authority:${line.person}->${teamId}`,
     source: `person:${line.person}`,
@@ -84,6 +92,13 @@ export function authorityOverToFlow(
       source: `person:${line.deputy}`,
       target: `team:${teamId}`,
       style: EDGE_STYLE.authority,
+      label: withInterimSuffix(deputyTitle(authorityLineTypes[line.type]?.title ?? line.type), line.is_deputy_interim ?? false),
+    });
+    edges.push({
+      id: `deputy:authority:${line.person}->${line.deputy}:${line.type}`,
+      source: `person:${line.person}`,
+      target: `person:${line.deputy}`,
+      style: EDGE_STYLE.authority,
       label: withInterimSuffix("Deputy", line.is_deputy_interim ?? false),
     });
   }
@@ -93,16 +108,26 @@ export function authorityOverToFlow(
       id: `chain:${team.head}->team:${teamId}`,
       source: `person:${team.head}`,
       target: `team:${teamId}`,
-      style: EDGE_STYLE.lineManagement,
-      label: withInterimSuffix(team.head_title, team.is_head_interim),
+      style: lineManagementStyle(team.is_hierarchical),
+      label: withInterimSuffix(headTitle(team), team.is_head_interim),
     });
+    if (team.head_deputy) {
+      edges.push({
+        id: `chain-deputy:${team.head_deputy}->team:${teamId}`,
+        source: `person:${team.head_deputy}`,
+        target: `team:${teamId}`,
+        style: lineManagementStyle(team.is_hierarchical),
+        label: withInterimSuffix(headDeputyTitle(team), team.is_head_deputy_interim ?? false),
+      });
+    }
   }
+  edges.push(...headDeputyEdgeList);
   for (let i = 0; i < chain.length - 1; i++) {
     edges.push({
       id: `chain:${chain[i + 1]}->${chain[i]}`,
       source: `person:${chain[i + 1]}`,
       target: `person:${chain[i]}`,
-      style: EDGE_STYLE.lineManagement,
+      style: lineManagementStyle(deriveLineManagerLink(chain[i]!, teams)?.hierarchical ?? true),
       label: "Line manager",
     });
   }

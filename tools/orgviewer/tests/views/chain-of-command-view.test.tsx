@@ -1,10 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
+import { findPickerTrigger, pickFromTree } from "../fixtures/tree-picker";
 
 const { graphCanvasCalls } = vi.hoisted(() => ({
   graphCanvasCalls: [] as Array<{
@@ -49,7 +49,7 @@ describe("ChainOfCommandView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    expect(screen.getByRole("combobox")).toHaveValue("alice-nguyen");
+    expect(await findPickerTrigger("Person")).toHaveAccessibleName("Person: Chris Osei");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.some((n) => n.id === "person:alice-nguyen")).toBe(
         true
@@ -67,7 +67,7 @@ describe("ChainOfCommandView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "carol-lee");
+    await pickFromTree("Person", "Carol Lee");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.edges.some((e) => e.id.startsWith("chain:"))).toBe(
         true
@@ -76,7 +76,7 @@ describe("ChainOfCommandView", () => {
 
     const { nodes, edges } = graphCanvasCalls[graphCanvasCalls.length - 1]!;
     expect(nodes.map((n) => n.id).sort()).toEqual(
-      ["person:carol-lee", "person:alice-nguyen", "person:vp-eng", "person:cto"].sort()
+      ["person:carol-lee", "person:alice-nguyen", "person:bob-diaz", "person:vp-eng", "person:cto"].sort()
     );
     expect(nodes.every((n) => n.type === "person")).toBe(true);
 
@@ -97,7 +97,7 @@ describe("ChainOfCommandView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "carol-lee");
+    await pickFromTree("Person", "Carol Lee");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.selectedNodeId).toBe("person:carol-lee")
     );
@@ -113,7 +113,7 @@ describe("ChainOfCommandView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "alice-nguyen");
+    await pickFromTree("Person", "Alice Nguyen");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.defaultFoldedNodeIds).toEqual(
         new Set(["person:alice-nguyen"])
@@ -131,7 +131,7 @@ describe("ChainOfCommandView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "carol-lee");
+    await pickFromTree("Person", "Carol Lee");
     await waitFor(() => expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0));
 
     const { nodes } = graphCanvasCalls[graphCanvasCalls.length - 1]!;

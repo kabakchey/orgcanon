@@ -17,6 +17,7 @@
   --edge-parent-child: #334155;
   --edge-membership: #94a3b8;
   --edge-line-management: #2563eb;
+  --edge-non-hierarchical: #db2777;
   --edge-authority: #b45309;
   --edge-ownership: #047857;
   --edge-dependency: #6d28d9;
@@ -47,6 +48,7 @@
   --edge-parent-child: #cbd5e1;
   --edge-membership: #64748b;
   --edge-line-management: #60a5fa;
+  --edge-non-hierarchical: #f472b6;
   --edge-authority: #fbbf24;
   --edge-ownership: #34d399;
   --edge-dependency: #a78bfa;
@@ -214,6 +216,126 @@ a {
   align-items: center;
   gap: 4px;
   white-space: nowrap;
+}
+
+.tree-picker {
+  position: relative;
+}
+
+.tree-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 220px;
+  max-width: 340px;
+  padding: 3px 8px;
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tree-picker-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-picker-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: var(--xy-controls-box-shadow, 0 1px 4px rgba(0, 0, 0, 0.15));
+}
+
+.tree-picker-filter {
+  padding: 4px 6px;
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.tree-picker-clear {
+  align-self: flex-start;
+  padding: 2px 6px;
+  font: inherit;
+  color: var(--link);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.tree-picker-tree {
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+}
+
+.tree-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-right: 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tree-picker-row:hover,
+.tree-picker-active {
+  background: var(--node-team-bg);
+}
+
+.tree-picker-row[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.tree-picker-group,
+.tree-picker-context {
+  color: var(--text-muted);
+}
+
+.tree-picker-chevron {
+  flex: 0 0 12px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.tree-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-picker-label mark {
+  background: var(--node-component-bg);
+  color: inherit;
+  border-radius: 2px;
+}
+
+.tree-picker-check {
+  margin-left: auto;
+  color: var(--node-selected-border);
+}
+
+.tree-picker-empty {
+  padding: 6px;
+  color: var(--text-muted);
 }
 
 .node-card {
@@ -536,4 +658,43 @@ a.node-card-count:hover {
 .entity-connection-chip:hover {
   background: var(--bg-panel);
   border-color: var(--node-border);
+}
+
+/* Lifted clear of xyflow's attribution link, which also sits bottom-right. */
+.react-flow__panel.graph-legend-panel {
+  margin-bottom: 28px;
+}
+
+.graph-legend {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.graph-legend-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.graph-legend-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.graph-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

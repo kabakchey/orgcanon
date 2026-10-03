@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
+import { findPickerTrigger } from "../fixtures/tree-picker";
 
 const { graphCanvasCalls } = vi.hoisted(() => ({
   graphCanvasCalls: [] as Array<{ nodes: Node[]; edges: Edge[]; foldStorageKey?: string; selectedNodeId?: string }>,
@@ -131,7 +132,7 @@ describe("OrgTreeView", () => {
     );
 
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
-    expect(screen.getByRole("combobox")).toHaveValue("potuto");
+    expect(await findPickerTrigger("Team")).toHaveAccessibleName("Team: Potuto");
   });
 
   it("shows people by default and hides all person nodes/edges once unchecked", async () => {
@@ -185,5 +186,20 @@ describe("OrgTreeView", () => {
         )
       ).toBe(true)
     );
+  });
+});
+
+describe("OrgTreeView toolbar toggles in the query string", () => {
+  it("initializes its toggles from the URL", async () => {
+    installMockOrgapiFetch();
+
+    render(
+      <MemoryRouter initialEntries={["/?showPeople=false&showAuthorityLines=true"]}>
+        <OrgTreeView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("checkbox", { name: "Show people" })).not.toBeChecked();
+    expect(await screen.findByRole("checkbox", { name: "Show authority lines" })).toBeChecked();
   });
 });

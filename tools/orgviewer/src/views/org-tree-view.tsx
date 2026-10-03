@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useEntities } from "../lib/orgapi/use-entities";
 import { findRootTeamId, orgTreeToFlow } from "../lib/relationships/org-tree-to-flow";
 import { GraphCanvas } from "../components/graph-canvas";
-import { EntityPicker, useSelectParam } from "../components/entity-picker";
+import { useBooleanParam } from "../lib/use-boolean-param";
+import { TreePicker } from "../components/tree-picker";
+import { useSelectParam } from "../lib/use-select-param";
+import { teamTree } from "../lib/picker/tree";
 import { withNodeSelect } from "../lib/with-node-select";
 
 export function OrgTreeView() {
@@ -13,8 +16,8 @@ export function OrgTreeView() {
   const authorityLineTypes = useEntities("authority_line_types");
   const [searchParams] = useSearchParams();
   const selectTeam = useSelectParam("teamId");
-  const [showPeople, setShowPeople] = useState(true);
-  const [showAuthorityLines, setShowAuthorityLines] = useState(false);
+  const [showPeople, setShowPeople] = useBooleanParam("showPeople", true);
+  const [showAuthorityLines, setShowAuthorityLines] = useBooleanParam("showAuthorityLines", false);
 
   const { nodes, edges } = useMemo(() => {
     if (!teams.data || !people.data) return { nodes: [], edges: [] };
@@ -27,6 +30,7 @@ export function OrgTreeView() {
     return { nodes: withNodeSelect(builtNodes, "team:", selectTeam), edges: builtEdges };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teams.data, people.data, authorityLines.data, authorityLineTypes.data, showPeople, showAuthorityLines]);
+  const tree = useMemo(() => (teams.data ? teamTree(teams.data) : []), [teams.data]);
 
   if (teams.error || people.error) {
     return <div>Failed to load org data.</div>;
@@ -42,14 +46,10 @@ export function OrgTreeView() {
   // rather than ever leaving the view with nothing selected.
   const teamId = requestedTeamId && teams.data[requestedTeamId] ? requestedTeamId : rootTeamId;
 
-  const options = Object.entries(teams.data)
-    .map(([id, team]) => ({ id, label: team.name }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-
   return (
     <div className="view-body">
       <div className="graph-toolbar">
-        <EntityPicker paramName="teamId" options={options} fallbackId={rootTeamId} />
+        <TreePicker label="Team" paramName="teamId" tree={tree} fallbackId={rootTeamId} />
         <label className="graph-toolbar-toggle">
           <input type="checkbox" checked={showPeople} onChange={(event) => setShowPeople(event.target.checked)} />
           Show people

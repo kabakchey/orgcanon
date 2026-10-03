@@ -3,7 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import { useEntities } from "../lib/orgapi/use-entities";
 import { authorityOverToFlow } from "../lib/relationships/authority-over-to-flow";
 import { GraphCanvas } from "../components/graph-canvas";
-import { EntityPicker, useSelectParam } from "../components/entity-picker";
+import { TreePicker } from "../components/tree-picker";
+import { useSelectParam } from "../lib/use-select-param";
+import { firstValue, teamTree } from "../lib/picker/tree";
 import { withNodeSelect } from "../lib/with-node-select";
 
 export function AuthorityOverView() {
@@ -14,16 +16,13 @@ export function AuthorityOverView() {
   const [searchParams] = useSearchParams();
   const selectTeam = useSelectParam("teamId");
 
-  const options = teams.data
-    ? Object.entries(teams.data)
-        .map(([id, team]) => ({ id, label: team.name }))
-        .sort((a, b) => a.label.localeCompare(b.label))
-    : [];
+  const tree = useMemo(() => (teams.data ? teamTree(teams.data) : []), [teams.data]);
+  const fallbackId = firstValue(tree);
 
   const requestedTeamId = searchParams.get("teamId") ?? undefined;
   // Defaults to the first team in the picker so the view never opens empty -- mirrors Org Tree's
   // root-team fallback.
-  const teamId = requestedTeamId && teams.data?.[requestedTeamId] ? requestedTeamId : options[0]?.id;
+  const teamId = requestedTeamId && teams.data?.[requestedTeamId] ? requestedTeamId : fallbackId;
 
   const { nodes, edges } = useMemo(() => {
     if (!teams.data || !people.data || !authorityLines.data || !authorityLineTypes.data)
@@ -46,7 +45,7 @@ export function AuthorityOverView() {
   return (
     <div className="view-body">
       <div className="graph-toolbar">
-        <EntityPicker paramName="teamId" options={options} fallbackId={options[0]?.id} />
+        <TreePicker label="Team" paramName="teamId" tree={tree} fallbackId={fallbackId} />
       </div>
       <GraphCanvas
         nodes={nodes}

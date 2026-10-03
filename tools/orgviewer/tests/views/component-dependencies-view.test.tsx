@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
+import { findPickerTrigger, pickFromTree } from "../fixtures/tree-picker";
 
 const { graphCanvasCalls } = vi.hoisted(() => ({
   graphCanvasCalls: [] as Array<{ nodes: Node[]; edges: Edge[]; selectedNodeId?: string }>,
@@ -39,7 +40,7 @@ describe("ComponentDependenciesView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    expect(screen.getByRole("combobox")).toHaveValue("billing-api");
+    expect(await findPickerTrigger("Component")).toHaveAccessibleName("Component: Billing API");
     await waitFor(() =>
       expect(
         graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.some((n) => n.id === "component:billing-api")
@@ -57,7 +58,7 @@ describe("ComponentDependenciesView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "billing-ui");
+    await pickFromTree("Component", "Billing UI");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0)
     );
@@ -83,7 +84,7 @@ describe("ComponentDependenciesView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "billing-ui");
+    await pickFromTree("Component", "Billing UI");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0)
     );
@@ -107,7 +108,7 @@ describe("ComponentDependenciesView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "billing-ui");
+    await pickFromTree("Component", "Billing UI");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.selectedNodeId).toBe("component:billing-ui")
     );
@@ -123,7 +124,7 @@ describe("ComponentDependenciesView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "billing-ui");
+    await pickFromTree("Component", "Billing UI");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0)
     );
@@ -143,7 +144,7 @@ describe("ComponentDependenciesView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "billing-worker");
+    await pickFromTree("Component", "Billing Worker");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0)
     );
@@ -158,5 +159,19 @@ describe("ComponentDependenciesView", () => {
     expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.map((n) => n.id).sort()).toEqual(
       ["component:billing-worker", "component:billing-ui", "component:billing-api"].sort()
     );
+  });
+});
+
+describe("ComponentDependenciesView toolbar toggles in the query string", () => {
+  it("initializes its toggles from the URL", async () => {
+    installMockOrgapiFetch();
+
+    render(
+      <MemoryRouter initialEntries={["/?transitive=true"]}>
+        <ComponentDependenciesView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("checkbox", { name: "Show transitive dependencies" })).toBeChecked();
   });
 });

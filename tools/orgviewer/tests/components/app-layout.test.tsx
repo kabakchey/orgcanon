@@ -49,6 +49,45 @@ describe("AppLayout", () => {
     expect(screen.getByRole("link", { name: "Chain of Command" })).not.toHaveClass("active");
   });
 
+  it("links each view to the query string it was last left with, across reloads", () => {
+    const first = render(
+      <MemoryRouter initialEntries={["/views/team-components?teamId=platform-squad&indirect=true"]}>
+        <AppLayout>{null}</AppLayout>
+      </MemoryRouter>
+    );
+    first.unmount();
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <AppLayout>{null}</AppLayout>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "Team Components" })).toHaveAttribute(
+      "href",
+      "/views/team-components?teamId=platform-squad&indirect=true"
+    );
+    expect(screen.getByRole("link", { name: "Org Tree" })).toHaveAttribute("href", "/views/org-tree");
+  });
+
+  it("forgets a view's query string once the view is left with none", () => {
+    localStorage.setItem("orgviewer-view-query:org-tree", "?teamId=r-and-d");
+    const first = render(
+      <MemoryRouter initialEntries={["/views/org-tree"]}>
+        <AppLayout>{null}</AppLayout>
+      </MemoryRouter>
+    );
+    first.unmount();
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <AppLayout>{null}</AppLayout>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "Org Tree" })).toHaveAttribute("href", "/views/org-tree");
+  });
+
   it("toggles the theme via the header button", async () => {
     render(
       <MemoryRouter initialEntries={["/"]}>

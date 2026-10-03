@@ -1,10 +1,17 @@
 import type { Team } from "../orgapi/types";
-import { withInterimSuffix } from "./interim";
+import { deputyTitle, headDeputyTitle, headTitle, memberTitle, withInterimSuffix } from "./interim";
 
 export interface PersonRole {
   teamId: string;
   title: string;
-  kind: "deputy" | "head" | "primary-member" | "member" | "role-deputy";
+  kind:
+    | "deputy"
+    | "head"
+    | "primary-member"
+    | "non-primary-deputy"
+    | "non-primary-head"
+    | "member"
+    | "role-deputy";
 }
 
 export interface PersonCardRoles {
@@ -13,15 +20,17 @@ export interface PersonCardRoles {
 }
 
 // Mirrors deriveLineManager's precedence (see line-management.ts) so a person's card title
-// always matches the role their line manager is actually derived from: deputy > head >
-// primary-team member > any other member entry. "role-deputy" (backing up someone else's
+// always matches the role their line manager is actually derived from: primary-team deputy >
+// primary-team head > primary-team member > any non-primary entry. "role-deputy" (backing up someone else's
 // members[] row) carries no line-management weight, so it sorts last.
 const KIND_PRIORITY: Record<PersonRole["kind"], number> = {
   deputy: 0,
   head: 1,
   "primary-member": 2,
-  member: 3,
-  "role-deputy": 4,
+  "non-primary-deputy": 3,
+  "non-primary-head": 4,
+  member: 5,
+  "role-deputy": 6,
 };
 
 export function collectPersonRoles(personId: string, teams: Record<string, Team>): PersonRole[] {
@@ -31,25 +40,29 @@ export function collectPersonRoles(personId: string, teams: Record<string, Team>
     if (team.head_deputy === personId) {
       roles.push({
         teamId,
-        title: withInterimSuffix(team.head_deputy_title ?? "Deputy", team.is_head_deputy_interim ?? false),
-        kind: "deputy",
+        title: withInterimSuffix(headDeputyTitle(team), team.is_head_deputy_interim ?? false),
+        kind: team.is_head_deputy_primary_team ? "deputy" : "non-primary-deputy",
       });
     }
     if (team.head === personId) {
-      roles.push({ teamId, title: withInterimSuffix(team.head_title, team.is_head_interim), kind: "head" });
+      roles.push({
+        teamId,
+        title: withInterimSuffix(headTitle(team), team.is_head_interim),
+        kind: team.is_head_primary_team ? "head" : "non-primary-head",
+      });
     }
     for (const member of team.members) {
       if (member.person === personId) {
         roles.push({
           teamId,
-          title: withInterimSuffix(member.title, member.is_interim),
+          title: withInterimSuffix(memberTitle(member), member.is_interim),
           kind: member.is_primary_team ? "primary-member" : "member",
         });
       }
       if (member.deputy === personId) {
         roles.push({
           teamId,
-          title: withInterimSuffix("Deputy", member.is_deputy_interim ?? false),
+          title: withInterimSuffix(deputyTitle(memberTitle(member)), member.is_deputy_interim ?? false),
           kind: "role-deputy",
         });
       }

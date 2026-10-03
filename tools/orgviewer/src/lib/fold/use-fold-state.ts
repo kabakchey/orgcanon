@@ -27,6 +27,7 @@ export interface UseFoldStateResult {
   foldedIds: Set<string>;
   isFolded: (nodeId: string) => boolean;
   toggleFold: (nodeId: string) => void;
+  setFolded: (nodeIds: Set<string>) => void;
 }
 
 // A stored set only counts as a real preference for the CURRENT graph if it's empty (0 folds is
@@ -93,7 +94,16 @@ export function useFoldState(
     [storageKey]
   );
 
+  const setFolded = useCallback(
+    (nodeIds: Set<string>) => {
+      const next = new Set(nodeIds);
+      writeFoldedIds(storageKey, next);
+      setFoldedIds(next);
+    },
+    [storageKey]
+  );
+
   const isFolded = useCallback((nodeId: string) => foldedIds.has(nodeId), [foldedIds]);
 
-  return { foldedIds, isFolded, toggleFold };
+  return { foldedIds, isFolded, toggleFold, setFolded };
 }

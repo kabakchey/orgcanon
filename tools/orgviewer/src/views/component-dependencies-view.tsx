@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useEntities } from "../lib/orgapi/use-entities";
 import { componentDependenciesToFlow } from "../lib/relationships/component-dependencies-to-flow";
 import { GraphCanvas } from "../components/graph-canvas";
-import { EntityPicker, useSelectParam } from "../components/entity-picker";
+import { useBooleanParam } from "../lib/use-boolean-param";
+import { TreePicker } from "../components/tree-picker";
+import { useSelectParam } from "../lib/use-select-param";
+import { componentTree, firstValue } from "../lib/picker/tree";
 import { withNodeSelect } from "../lib/with-node-select";
 
 export function ComponentDependenciesView() {
@@ -11,19 +14,19 @@ export function ComponentDependenciesView() {
   const teams = useEntities("teams");
   const [searchParams] = useSearchParams();
   const selectComponent = useSelectParam("componentId");
-  const [transitive, setTransitive] = useState(false);
+  const [transitive, setTransitive] = useBooleanParam("transitive", false);
 
-  const options = components.data
-    ? Object.entries(components.data)
-        .map(([id, component]) => ({ id, label: component.name }))
-        .sort((a, b) => a.label.localeCompare(b.label))
-    : [];
+  const tree = useMemo(
+    () => (teams.data && components.data ? componentTree(teams.data, components.data) : []),
+    [teams.data, components.data]
+  );
+  const fallbackId = firstValue(tree);
 
   const requestedComponentId = searchParams.get("componentId") ?? undefined;
   // Defaults to the first component in the picker so the view never opens empty -- mirrors Org
   // Tree's root-team fallback.
   const componentId =
-    requestedComponentId && components.data?.[requestedComponentId] ? requestedComponentId : options[0]?.id;
+    requestedComponentId && components.data?.[requestedComponentId] ? requestedComponentId : fallbackId;
 
   const { nodes, edges } = useMemo(() => {
     if (!components.data || !teams.data) return { nodes: [], edges: [] };
@@ -45,7 +48,7 @@ export function ComponentDependenciesView() {
   return (
     <div className="view-body">
       <div className="graph-toolbar">
-        <EntityPicker paramName="componentId" options={options} fallbackId={options[0]?.id} />
+        <TreePicker label="Component" paramName="componentId" tree={tree} fallbackId={fallbackId} />
         <label className="graph-toolbar-toggle">
           <input type="checkbox" checked={transitive} onChange={(event) => setTransitive(event.target.checked)} />
           Show transitive dependencies

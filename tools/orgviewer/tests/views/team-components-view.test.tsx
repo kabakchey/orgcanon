@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
+import { findPickerTrigger, pickFromTree } from "../fixtures/tree-picker";
 
 const { graphCanvasCalls } = vi.hoisted(() => ({
   graphCanvasCalls: [] as Array<{ nodes: Node[]; edges: Edge[]; selectedNodeId?: string }>,
@@ -39,9 +40,9 @@ describe("TeamComponentsView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    expect(screen.getByRole("combobox")).toHaveValue("platform-squad");
+    expect(await findPickerTrigger("Team")).toHaveAccessibleName("Team: Potuto");
     await waitFor(() =>
-      expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.some((n) => n.id === "team:platform-squad")).toBe(
+      expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.some((n) => n.id === "team:potuto")).toBe(
         true
       )
     );
@@ -57,7 +58,7 @@ describe("TeamComponentsView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "platform-squad");
+    await pickFromTree("Team", "Platform Squad");
     await waitFor(() =>
       expect(
         graphCanvasCalls[graphCanvasCalls.length - 1]!.edges.some((e) => e.id.startsWith("ownership:"))
@@ -90,7 +91,7 @@ describe("TeamComponentsView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "r-and-d");
+    await pickFromTree("Team", "R&D");
     await waitFor(() => expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0));
 
     const { nodes } = graphCanvasCalls[graphCanvasCalls.length - 1]!;
@@ -108,7 +109,7 @@ describe("TeamComponentsView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "r-and-d");
+    await pickFromTree("Team", "R&D");
     await waitFor(() => expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0));
 
     await userEvent.click(screen.getByRole("checkbox"));
@@ -133,7 +134,7 @@ describe("TeamComponentsView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "platform-squad");
+    await pickFromTree("Team", "Platform Squad");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.selectedNodeId).toBe("team:platform-squad")
     );
@@ -149,11 +150,25 @@ describe("TeamComponentsView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "platform-squad");
+    await pickFromTree("Team", "Platform Squad");
     await waitFor(() => expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0));
 
     const { nodes } = graphCanvasCalls[graphCanvasCalls.length - 1]!;
     const teamNode = nodes.find((n) => n.id === "team:platform-squad")!;
     expect(typeof teamNode.data.onSelect).toBe("function");
+  });
+});
+
+describe("TeamComponentsView toolbar toggles in the query string", () => {
+  it("initializes its toggles from the URL", async () => {
+    installMockOrgapiFetch();
+
+    render(
+      <MemoryRouter initialEntries={["/?indirect=true"]}>
+        <TeamComponentsView />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("checkbox", { name: "Include components owned by subteams" })).toBeChecked();
   });
 });

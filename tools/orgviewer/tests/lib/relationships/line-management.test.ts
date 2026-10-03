@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveLineManager,
+  deriveLineManagerLink,
   getChainOfCommand,
   getDirectReports,
 } from "../../../src/lib/relationships/line-management";
@@ -29,6 +30,38 @@ describe("deriveLineManager", () => {
   it("root team's head has no line manager", () => {
     expect(deriveLineManager("cto", teams)).toBeNull();
   });
+
+  it("rule 2 uses the head's primary team when they also head a non-primary child team listed first", () => {
+    const multiHeadTeams = {
+      "a-interim-squad": {
+        ...teams["platform-squad"],
+        parent_team: "r-and-d",
+        head: "vp-eng",
+        head_deputy: null,
+        is_head_primary_team: false,
+        is_head_deputy_primary_team: null,
+      },
+      ...teams,
+    };
+
+    expect(deriveLineManager("vp-eng", multiHeadTeams)).toBe("cto");
+  });
+
+  it("rule 3 uses the deputy's primary team when they also deputize a non-primary team listed first", () => {
+    const multiDeputyTeams = {
+      "a-interim-squad": {
+        ...teams["platform-squad"],
+        parent_team: "r-and-d",
+        head: "vp-eng",
+        head_deputy: "bob-diaz",
+        is_head_primary_team: false,
+        is_head_deputy_primary_team: false,
+      },
+      ...teams,
+    };
+
+    expect(deriveLineManager("bob-diaz", multiDeputyTeams)).toBe("alice-nguyen");
+  });
 });
 
 describe("getChainOfCommand", () => {
@@ -52,5 +85,21 @@ describe("getDirectReports", () => {
 
   it("returns an empty list for someone with no reports", () => {
     expect(getDirectReports("carol-lee", teams)).toEqual([]);
+  });
+});
+
+describe("deriveLineManagerLink", () => {
+  it("marks a member's and a deputy's link non-hierarchical when their team is (platform-squad)", () => {
+    expect(deriveLineManagerLink("carol-lee", teams)).toEqual({ managerId: "alice-nguyen", hierarchical: false });
+    expect(deriveLineManagerLink("bob-diaz", teams)).toEqual({ managerId: "alice-nguyen", hierarchical: false });
+  });
+
+  it("marks a head's link non-hierarchical when either their team or the parent team is", () => {
+    expect(deriveLineManagerLink("alice-nguyen", teams)).toEqual({ managerId: "vp-eng", hierarchical: false });
+    expect(deriveLineManagerLink("vp-eng", teams)).toEqual({ managerId: "cto", hierarchical: true });
+  });
+
+  it("returns null with no line manager", () => {
+    expect(deriveLineManagerLink("cto", teams)).toBeNull();
   });
 });

@@ -1,10 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
+import { findPickerTrigger, pickFromTree } from "../fixtures/tree-picker";
 
 const { graphCanvasCalls } = vi.hoisted(() => ({
   graphCanvasCalls: [] as Array<{ nodes: Node[]; edges: Edge[]; selectedNodeId?: string }>,
@@ -39,9 +39,9 @@ describe("AuthorityOverView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    expect(screen.getByRole("combobox")).toHaveValue("platform-squad");
+    expect(await findPickerTrigger("Team")).toHaveAccessibleName("Team: Potuto");
     await waitFor(() =>
-      expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.some((n) => n.id === "team:platform-squad")).toBe(
+      expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.some((n) => n.id === "team:potuto")).toBe(
         true
       )
     );
@@ -57,7 +57,7 @@ describe("AuthorityOverView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "platform-squad");
+    await pickFromTree("Team", "Platform Squad");
     await waitFor(() =>
       expect(
         graphCanvasCalls[graphCanvasCalls.length - 1]!.edges.some((e) => e.id.startsWith("authority:"))
@@ -66,7 +66,7 @@ describe("AuthorityOverView", () => {
 
     const { nodes, edges } = graphCanvasCalls[graphCanvasCalls.length - 1]!;
     expect(nodes.map((n) => n.id).sort()).toEqual(
-      ["team:platform-squad", "person:carol-lee", "person:alice-nguyen", "person:vp-eng", "person:cto"].sort()
+      ["team:platform-squad", "person:carol-lee", "person:alice-nguyen", "person:bob-diaz", "person:vp-eng", "person:cto"].sort()
     );
 
     const nodeIds = new Set(nodes.map((n) => n.id));
@@ -86,7 +86,7 @@ describe("AuthorityOverView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "platform-squad");
+    await pickFromTree("Team", "Platform Squad");
     await waitFor(() =>
       expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.selectedNodeId).toBe("team:platform-squad")
     );
@@ -102,7 +102,7 @@ describe("AuthorityOverView", () => {
     );
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
 
-    await userEvent.selectOptions(screen.getByRole("combobox"), "platform-squad");
+    await pickFromTree("Team", "Platform Squad");
     await waitFor(() => expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.nodes.length).toBeGreaterThan(0));
 
     const { nodes } = graphCanvasCalls[graphCanvasCalls.length - 1]!;

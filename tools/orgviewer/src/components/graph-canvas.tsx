@@ -1,26 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   applyNodeChanges,
   Background,
   ControlButton,
   Controls,
+  Panel,
   ReactFlow,
   useReactFlow,
   type Edge,
   type Node,
   type NodeChange,
+  type ReactFlowInstance,
+  type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { layoutElements, type LayoutDirection, type RoutePoint } from "./layout";
 import { nodeTypes } from "./node-types";
+import { GraphLegend } from "./graph-legend";
 import { edgeTypes, type OnEdgeRouteChange } from "./edge-types";
 import { applyFold, foldableSourceIds } from "../lib/relationships/apply-fold";
 import { useFoldState } from "../lib/fold/use-fold-state";
 import { computeAutoFoldedIds } from "../lib/fold/auto-fold";
 import { applyLayoutOverride, snapshotLayout } from "../lib/layout/layout-override";
 import { useLayoutOverride } from "../lib/layout/use-layout-override";
+import { anchoredViewport } from "../lib/layout/anchor-viewport";
+import { useCameraParam } from "../lib/use-camera-param";
 import { graphToMermaid } from "../lib/export/graph-to-mermaid";
 import { downloadTextFile } from "../lib/export/download-text-file";
 
@@ -45,15 +51,32 @@ export interface GraphCanvasProps {
 }
 
 // Rendered as a child of <ReactFlow> so it can reach the flow instance via useReactFlow (per
-// xyflow's own pattern for imperative calls after render). `fitView` only auto-runs once on
-// mount; re-running it here whenever `trigger` changes identity is what re-centers the camera
-// after a view swaps in a newly-laid-out graph (a different selection, a fold toggle, a "Reset
-// graph" click, ...) -- but deliberately NOT after every drag commit, so the camera doesn't jump
-// out from under someone mid-rearrangement (see graph-canvas's own fitTrigger state).
-function FitViewOnChange({ trigger }: { trigger: unknown }) {
-  const { fitView } = useReactFlow();
+// xyflow's own pattern for imperative calls after render). Only the first real layout places the
+// camera -- from the URL when it has one, else by fitting; every later relayout keeps the user's
+// zoom and pins an anchor node instead (see GraphCanvas's pendingViewport).
+function PlaceCameraOnFirstLayout({
+  trigger,
+  camera,
+  onFitted,
+}: {
+  trigger: number;
+  camera: Viewport | null;
+  onFitted: (camera: Viewport) => void;
+}) {
+  const { fitView, setViewport, getViewport } = useReactFlow();
+  const placed = useRef(false);
   useEffect(() => {
-    fitView();
+    if (placed.current) return;
+    // Trigger 0 is the mount before ELK's first result, so the graph isn't laid out yet.
+    const laidOut = trigger !== 0;
+    placed.current = laidOut;
+    if (camera) {
+      void setViewport(camera);
+      return;
+    }
+    void Promise.resolve(fitView()).then(() => {
+      if (laidOut) onFitted(getViewport());
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trigger]);
   return null;
@@ -80,7 +103,7 @@ export function GraphCanvas({
   // shared this same storage key) apart from a real user preference for THIS graph -- see its own
   // doc for why that distinction matters.
   const currentNodeIds = useMemo(() => (foldStorageKey ? new Set(nodes.map((n) => n.id)) : undefined), [foldStorageKey, nodes]);
-  const { foldedIds, toggleFold } = useFoldState(foldStorageKey ?? "disabled", autoDefaultFoldedNodeIds, currentNodeIds);
+  const { foldedIds, toggleFold, setFolded } = useFoldState(foldStorageKey ?? "disabled", autoDefaultFoldedNodeIds, currentNodeIds);
   const { override, save, reset } = useLayoutOverride(graphKey);
 
   const [elkResult, setElkResult] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
@@ -98,6 +121,13 @@ export function GraphCanvas({
   canvasEdgesRef.current = canvasEdges;
   const overrideRef = useRef(override);
   overrideRef.current = override;
+  const selectedNodeIdRef = useRef(selectedNodeId);
+  selectedNodeIdRef.current = selectedNodeId;
+  const flowRef = useRef<ReactFlowInstance | null>(null);
+  // The node whose fold button was just clicked; it outranks the selection as the anchor.
+  const touchedNodeIdRef = useRef<string | undefined>(undefined);
+  const pendingViewportRef = useRef<Viewport | null>(null);
+  const [camera, setCamera] = useCameraParam();
 
   const folded = useMemo(
     () =>
@@ -127,7 +157,10 @@ export function GraphCanvas({
                 folded: foldedIds.has(node.id),
                 hiddenCount: folded.hiddenCounts.get(node.id) ?? 0,
                 directHiddenCount: folded.directHiddenCounts.get(node.id) ?? 0,
-                onToggleFold: () => toggleFold(node.id),
+                onToggleFold: () => {
+                  touchedNodeIdRef.current = node.id;
+                  toggleFold(node.id);
+                },
               }
             : undefined;
         if (!selected && !foldProps) return node;
@@ -225,14 +258,29 @@ export function GraphCanvas({
           handleEdgeRouteChangeRef.current(edge.id, points, commit)) satisfies OnEdgeRouteChange,
       },
     }));
+    const flow = flowRef.current;
+    if (flow) {
+      pendingViewportRef.current = anchoredViewport(flow.getViewport(), canvasNodesRef.current, merged.nodes, [
+        touchedNodeIdRef.current,
+        selectedNodeIdRef.current,
+      ]);
+    }
+    touchedNodeIdRef.current = undefined;
     setCanvasNodes(merged.nodes);
     setCanvasEdges(edgesWithHandlers);
   }, [elkResult, override]);
 
-  const handleReset = useCallback(() => {
-    reset();
-    setFitTrigger((v) => v + 1);
-  }, [reset]);
+  // A layout effect, so the camera moves in the same frame the nodes do and the anchor never jumps.
+  useLayoutEffect(() => {
+    const pending = pendingViewportRef.current;
+    pendingViewportRef.current = null;
+    if (!pending) return;
+    void flowRef.current?.setViewport(pending);
+    setCamera(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasNodes]);
+
+  const handleReset = useCallback(() => reset(), [reset]);
 
   if (layoutError) {
     return (
@@ -280,6 +328,10 @@ export function GraphCanvas({
         nodes={displayNodes}
         edges={displayEdges}
         onNodesChange={onNodesChange}
+        onMoveEnd={(_event, viewport) => setCamera(viewport)}
+        onInit={(instance) => {
+          flowRef.current = instance;
+        }}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={{ type: "labeled" }}
@@ -288,12 +340,15 @@ export function GraphCanvas({
         // axes) like any normal scrollable content; Ctrl/Cmd+scroll still zooms.
         panOnScroll
         // xyflow's own default (0.5) can be tighter than the scale a big org's full graph needs
-        // to fit on screen at once -- fitView (FitViewOnChange above) and manual zoom-out both
+        // to fit on screen at once -- fitView (PlaceCameraOnFirstLayout above) and manual zoom-out both
         // silently stop short of showing the whole thing once they hit it.
         minZoom={0.05}
       >
-        <FitViewOnChange trigger={fitTrigger} />
+        <PlaceCameraOnFirstLayout trigger={fitTrigger} camera={camera} onFitted={setCamera} />
         <Background />
+        <Panel position="bottom-right" className="graph-legend-panel">
+          <GraphLegend edges={displayEdges} />
+        </Panel>
         <Controls>
           <ControlButton
             className="export-mermaid-button"
@@ -303,6 +358,16 @@ export function GraphCanvas({
           >
             ⇩
           </ControlButton>
+          {foldableIds.size > 0 && (
+            <>
+              <ControlButton className="fold-all-button" onClick={() => setFolded(foldableIds)} title="Fold all" aria-label="Fold all">
+                ⊟
+              </ControlButton>
+              <ControlButton className="unfold-all-button" onClick={() => setFolded(new Set())} title="Unfold all" aria-label="Unfold all">
+                ⊞
+              </ControlButton>
+            </>
+          )}
           {override && (
             <ControlButton className="reset-graph-button" onClick={handleReset} title="Reset graph" aria-label="Reset graph">
               ↺

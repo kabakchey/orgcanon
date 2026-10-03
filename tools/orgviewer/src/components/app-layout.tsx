@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { views } from "../views/registry";
+import { getViewBySlug, views } from "../views/registry";
+import { rememberViewQuery, viewHref } from "../lib/view-query-memory";
 import { useTheme } from "../lib/theme/use-theme";
 import { OrgapiUrlSetting } from "./orgapi-url-setting";
 import mascotIcon from "../assets/mascot-icon.png";
@@ -12,6 +13,12 @@ function navLinkClassName(isActive: boolean): string {
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const currentSlug = location.pathname.match(/^\/views\/([^/]+)$/)?.[1];
+  const currentView = currentSlug ? getViewBySlug(currentSlug) : undefined;
+
+  useEffect(() => {
+    if (currentView) rememberViewQuery(currentView.slug, location.search);
+  }, [currentView, location.search]);
 
   return (
     <div className="app-shell">
@@ -22,9 +29,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </Link>
         <nav className="app-nav-links">
           {views.map((view) => {
-            const href = `/views/${view.slug}`;
+            const isActive = view === currentView;
+            const href = isActive ? `${location.pathname}${location.search}` : viewHref(view.slug);
             return (
-              <Link key={view.slug} to={href} className={navLinkClassName(location.pathname === href)}>
+              <Link key={view.slug} to={href} className={navLinkClassName(isActive)}>
                 {view.title}
               </Link>
             );

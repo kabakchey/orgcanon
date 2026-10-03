@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import { EDGE_STYLE } from "../../components/edge-styles";
+import { teamEdgeStyle } from "./team-edge-style";
 import { componentNode } from "./component-dependencies-to-flow";
 import type { Component, Team } from "../orgapi/types";
 
@@ -60,7 +61,7 @@ export function teamComponentsToFlow(
         id: `hierarchy:${parentId}->${childId}`,
         source: `team:${parentId}`,
         target: `team:${childId}`,
-        style: EDGE_STYLE.parentChild,
+        style: teamEdgeStyle(teams[parentId], teams[childId]),
       });
       ownerTeamIds.push(childId);
     }

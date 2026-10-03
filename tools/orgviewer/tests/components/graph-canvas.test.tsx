@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { Position, type Edge, type Node } from "@xyflow/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { GraphCanvas } from "../../src/components/graph-canvas";
+import { EDGE_STYLE } from "../../src/components/edge-styles";
 
 function renderWithRouter(ui: React.ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -21,6 +22,22 @@ describe("GraphCanvas", () => {
 
     expect(await screen.findByText("Team A")).toBeInTheDocument();
     expect(await screen.findByText("Person B")).toBeInTheDocument();
+  });
+});
+
+describe("GraphCanvas legend", () => {
+  it("shows a legend in the bottom-right corner for the edges on screen", async () => {
+    const nodes: Node[] = [
+      { id: "team:a", type: "team", position: { x: 0, y: 0 }, data: { label: "Team A" } },
+      { id: "person:b", type: "person", position: { x: 0, y: 0 }, data: { label: "Person B" } },
+    ];
+    const edges: Edge[] = [{ id: "e1", source: "team:a", target: "person:b", style: EDGE_STYLE.membership }];
+
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
+
+    const legend = await screen.findByRole("region", { name: "Legend" });
+    expect(legend.closest(".react-flow__panel")).toHaveClass("bottom", "right");
+    expect(within(legend).getByText("Team membership")).toBeInTheDocument();
   });
 });
 
@@ -82,12 +99,15 @@ describe("GraphCanvas selection highlight", () => {
 });
 
 describe("GraphCanvas re-centering", () => {
-  it("re-fits the view every time the rendered node set changes, not just on mount", async () => {
+  it("fits to the screen for the first layout only, never when the node set later changes", async () => {
     vi.resetModules();
     const fitViewMock = vi.fn();
     vi.doMock("@xyflow/react", async (importOriginal) => {
       const actual = await importOriginal<typeof import("@xyflow/react")>();
-      return { ...actual, useReactFlow: () => ({ fitView: fitViewMock }) };
+      return {
+        ...actual,
+        useReactFlow: () => ({ fitView: fitViewMock, setViewport: vi.fn(), getViewport: () => ({ x: 0, y: 0, zoom: 1 }) }),
+      };
     });
 
     const { GraphCanvas: GraphCanvasWithMockedFitView } = await import(
@@ -98,8 +118,9 @@ describe("GraphCanvas re-centering", () => {
       { id: "team:a", type: "team", position: { x: 0, y: 0 }, data: { label: "Team A" } },
     ];
     const { rerender } = renderWithRouter(<GraphCanvasWithMockedFitView nodes={nodesA} edges={[]} />);
-    await waitFor(() => expect(fitViewMock.mock.calls.length).toBeGreaterThan(0));
-    const callsAfterMount = fitViewMock.mock.calls.length;
+    // One fit on mount, one once ELK's first layout lands.
+    await waitFor(() => expect(fitViewMock.mock.calls.length).toBe(2));
+    expect(fitViewMock.mock.calls).toEqual([[], []]);
 
     const nodesB: Node[] = [
       ...nodesA,
@@ -111,7 +132,64 @@ describe("GraphCanvas re-centering", () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => expect(fitViewMock.mock.calls.length).toBeGreaterThan(callsAfterMount));
+    await screen.findByText("Team B");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fitViewMock).toHaveBeenCalledTimes(2);
+
+    vi.doUnmock("@xyflow/react");
+    vi.resetModules();
+  });
+});
+
+describe("GraphCanvas camera in the URL", () => {
+  function Search() {
+    return <output aria-label="search">{useLocation().search}</output>;
+  }
+
+  async function importWithMockedFlow() {
+    vi.resetModules();
+    const flow = {
+      fitView: vi.fn(async () => true),
+      setViewport: vi.fn(async () => true),
+      getViewport: () => ({ x: 5, y: 6, zoom: 0.75 }),
+    };
+    vi.doMock("@xyflow/react", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@xyflow/react")>();
+      return { ...actual, useReactFlow: () => flow };
+    });
+    const { GraphCanvas: MockedCanvas } = await import("../../src/components/graph-canvas");
+    return { flow, MockedCanvas };
+  }
+
+  const nodes: Node[] = [{ id: "team:a", type: "team", position: { x: 0, y: 0 }, data: { label: "Team A" } }];
+
+  it("restores the camera from the URL instead of fitting", async () => {
+    const { flow, MockedCanvas } = await importWithMockedFlow();
+    render(
+      <MemoryRouter initialEntries={["/?zoom=0.5&x=10&y=20"]}>
+        <MockedCanvas nodes={nodes} edges={[]} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(flow.setViewport).toHaveBeenCalledWith({ x: 10, y: 20, zoom: 0.5 }));
+    expect(flow.fitView).not.toHaveBeenCalled();
+
+    vi.doUnmock("@xyflow/react");
+    vi.resetModules();
+  });
+
+  it("fits when the URL has no camera, then writes the fitted camera into it", async () => {
+    const { flow, MockedCanvas } = await importWithMockedFlow();
+    render(
+      <MemoryRouter initialEntries={["/?teamId=a"]}>
+        <MockedCanvas nodes={nodes} edges={[]} />
+        <Search />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("search")).toHaveTextContent("zoom=0.75&x=5&y=6"));
+    expect(screen.getByLabelText("search")).toHaveTextContent("teamId=a");
+    expect(flow.fitView).toHaveBeenCalled();
 
     vi.doUnmock("@xyflow/react");
     vi.resetModules();
@@ -304,6 +382,55 @@ describe("GraphCanvas folding", () => {
       expect(screen.queryByText("R&D")).toBeNull();
     });
     expect(screen.getByRole("button", { name: "Expand (1 direct, 1 total hidden)" })).toBeInTheDocument();
+  });
+});
+
+describe("GraphCanvas fold all / unfold all", () => {
+  function teamNode(id: string, label: string): Node {
+    return { id: `team:${id}`, type: "team", position: { x: 0, y: 0 }, data: { label }, measured: { width: 200, height: 88 } };
+  }
+  const nodes: Node[] = [teamNode("a", "Alpha"), teamNode("b", "Bravo"), teamNode("c", "Charlie")];
+  const edges: Edge[] = [
+    { id: "hierarchy:a->b", source: "team:a", target: "team:b" },
+    { id: "hierarchy:b->c", source: "team:b", target: "team:c" },
+  ];
+
+  it("Fold all folds every foldable node, nested ones included, so expanding the top reveals one level", async () => {
+    localStorage.clear();
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-fold-all" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Fold all" }));
+    await waitFor(() => expect(screen.queryByText("Bravo")).toBeNull());
+
+    await userEvent.click(await screen.findByRole("button", { name: "Expand (1 direct, 2 total hidden)" }));
+    expect(await screen.findByText("Bravo")).toBeInTheDocument();
+    expect(screen.queryByText("Charlie")).toBeNull();
+  });
+
+  it("Unfold all expands every folded node and persists it", async () => {
+    localStorage.clear();
+    localStorage.setItem("orgviewer-fold:test-unfold-all", JSON.stringify(["team:a", "team:b"]));
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-unfold-all" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Unfold all" }));
+
+    expect(await screen.findByText("Charlie")).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("orgviewer-fold:test-unfold-all")!)).toEqual([]);
+  });
+
+  it("shows neither button when the graph has nothing foldable", async () => {
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={[]} foldStorageKey="test-nothing-foldable" />);
+
+    expect(await screen.findByRole("button", { name: "Export as Mermaid" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Unfold all" })).toBeNull();
+  });
+
+  it("shows neither button when the view has folding disabled", async () => {
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
+
+    expect(await screen.findByRole("button", { name: "Export as Mermaid" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
   });
 });
 

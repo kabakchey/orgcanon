@@ -1,8 +1,13 @@
 import type { Edge, Node } from "@xyflow/react";
-import { EDGE_STYLE } from "../../components/edge-styles";
-import { getChainOfCommand, getDirectReports } from "./line-management";
-import { derivePersonCardRoles } from "./person-roles";
+import { lineManagementStyle } from "../../components/edge-styles";
+import { deriveLineManagerLink, getChainOfCommand, getDirectReports } from "./line-management";
+import { headDeputyEdges } from "./head-deputy-edges";
+import { derivePersonCardRoles, type PersonRole } from "./person-roles";
 import type { Person, Team } from "../orgapi/types";
+
+function roleWithUnit(role: PersonRole, teams: Record<string, Team>): string {
+  return `${role.title} · ${teams[role.teamId]?.name ?? role.teamId}`;
+}
 
 function personNode(personId: string, teams: Record<string, Team>, people: Record<string, Person>): Node {
   const person = people[personId];
@@ -12,9 +17,8 @@ function personNode(personId: string, teams: Record<string, Team>, people: Recor
     type: "person",
     data: {
       label: person?.name ?? personId,
-      teamName: primary ? (teams[primary.teamId]?.name ?? null) : null,
-      primaryTitle: primary?.title ?? null,
-      secondaryTitles: secondary.map((role) => role.title),
+      primaryTitle: primary ? roleWithUnit(primary, teams) : null,
+      secondaryTitles: secondary.map((role) => roleWithUnit(role, teams)),
       documentationUrl: person?.documentation_url,
       direction: "DOWN",
     },
@@ -25,8 +29,9 @@ function personNode(personId: string, teams: Record<string, Team>, people: Recor
 // The chain of command for one person: every manager above them up to the root (via "chain:"
 // edges, never foldable -- see apply-fold.ts), plus that person's own subordinates and their
 // subordinates recursively (via "reports:" edges, foldable and folded by default so a large
-// downward tree doesn't dump onto the screen at once) -- and nothing else: no team nodes, no
-// unrelated org-tree branches, no ancestors' *other* reports. Both edge kinds point
+// downward tree doesn't dump onto the screen at once), plus the head_deputy of every team any of
+// those people heads (via non-foldable "deputy:" edges) -- and nothing else: no team nodes, no
+// unrelated org-tree branches, no ancestors' *other* reports. All edge kinds point
 // manager -> report (the reverse of "who reports to whom") so ELK's DOWN-direction layered
 // layout places managers above their reports, matching how a chain of command actually reads.
 export function chainOfCommandToFlow(
@@ -46,7 +51,7 @@ export function chainOfCommandToFlow(
       id: `chain:${manager}->${report}`,
       source: `person:${manager}`,
       target: `person:${report}`,
-      style: EDGE_STYLE.lineManagement,
+      style: lineManagementStyle(deriveLineManagerLink(report, teams)?.hierarchical ?? true),
     });
   }
 
@@ -63,12 +68,16 @@ export function chainOfCommandToFlow(
         id: `reports:${manager}->${reportId}`,
         source: `person:${manager}`,
         target: `person:${reportId}`,
-        style: EDGE_STYLE.lineManagement,
+        style: lineManagementStyle(deriveLineManagerLink(reportId, teams)?.hierarchical ?? true),
       });
     }
   }
 
-  const nodes = [...upwardIds, ...downwardIds].map((id) => personNode(id, teams, people));
+  const { deputyIds, edges: deputyEdges } = headDeputyEdges([...upwardIds, ...downwardIds], teams);
+  edges.push(...deputyEdges);
+  const extraDeputyIds = [...new Set(deputyIds)].filter((id) => !seen.has(id));
+
+  const nodes = [...upwardIds, ...downwardIds, ...extraDeputyIds].map((id) => personNode(id, teams, people));
 
   return { nodes, edges };
 }
