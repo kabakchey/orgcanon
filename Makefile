@@ -50,7 +50,7 @@ export TF_DATA_DIR PYTHONPYCACHEPREFIX
 	check-reviewable-expiration check check-examples clean \
 	check-friendly report-data-quality diff-summary post-review-comment \
 	check-orgapi check-orgviewer \
-	docker-image-terraform docker-image-python docker-image-node \
+	docker-image-core docker-image-node \
 	_fmt _init _validate _plan _apply _check-team-hierarchy _check-retirement-confirmations \
 	_check-reviewable-expiration _check _check-examples _diff-plans \
 	_check-friendly _report-data-quality _diff-summary _post-review-comment
@@ -78,44 +78,42 @@ DOCKER_RUN = docker run --rm --init -e TINI_KILL_PROCESS_GROUP=true -v $(CURDIR)
 # Always runs `docker build`, relying on Docker's layer cache rather than tracking changes
 # ourselves -- a no-op rebuild is under a second, and an image removed via `docker rmi`/prune
 # always gets rebuilt rather than skipped by a stale local marker.
-docker-image-terraform:
-	docker build --target terraform -t orgcanon:terraform .
-docker-image-python:
-	docker build --target python -t orgcanon:python .
+docker-image-core:
+	docker build -t orgcanon:core .
 docker-image-node:
-	docker build --target node -t orgcanon:node .
+	docker build --build-arg TOOLCHAINS="terraform node" -t orgcanon:node .
 
 ifeq ($(RUN_IN_DOCKER),1)
 
-install: docker-image-terraform
-fmt: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _fmt
-init: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _init
-validate: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _validate
-plan: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _plan
-apply: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _apply
-check-team-hierarchy: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _check-team-hierarchy
-check-retirement-confirmations: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _check-retirement-confirmations BASE_SHA=$(BASE_SHA)
-check-reviewable-expiration: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _check-reviewable-expiration
-check: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _check BASE_SHA=$(BASE_SHA)
-check-examples: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _check-examples
-check-friendly: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _check-friendly
-report-data-quality: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _report-data-quality
-diff-summary: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _diff-summary BASE_SHA=$(BASE_SHA)
-post-review-comment: docker-image-terraform
-	$(DOCKER_RUN) orgcanon:terraform make _post-review-comment PLATFORM=$(PLATFORM) REPO=$(REPO) PR_NUMBER=$(PR_NUMBER)
+install: docker-image-core
+fmt: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _fmt
+init: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _init
+validate: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _validate
+plan: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _plan
+apply: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _apply
+check-team-hierarchy: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _check-team-hierarchy
+check-retirement-confirmations: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _check-retirement-confirmations BASE_SHA=$(BASE_SHA)
+check-reviewable-expiration: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _check-reviewable-expiration
+check: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _check BASE_SHA=$(BASE_SHA)
+check-examples: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _check-examples
+check-friendly: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _check-friendly
+report-data-quality: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _report-data-quality
+diff-summary: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _diff-summary BASE_SHA=$(BASE_SHA)
+post-review-comment: docker-image-core
+	$(DOCKER_RUN) orgcanon:core make _post-review-comment PLATFORM=$(PLATFORM) REPO=$(REPO) PR_NUMBER=$(PR_NUMBER)
 
 else
 

@@ -50,6 +50,15 @@ describe("EntityPage", () => {
     expect(screen.getByText(/Provide either `id` or lookup filter params, not both\./)).toBeInTheDocument();
   });
 
+  it("links the type badge back to that type's table", async () => {
+    installMockOrgapiFetch();
+
+    renderAt("/entities/teams?id=platform-squad");
+
+    const badge = await screen.findByRole("link", { name: "teams" });
+    expect(badge).toHaveAttribute("href", "/views/entities?entity=teams");
+  });
+
   it("renders the entity's own fields for a known id", async () => {
     installMockOrgapiFetch();
 

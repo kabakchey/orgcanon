@@ -4,6 +4,7 @@ import { ChainOfCommandView } from "./chain-of-command-view";
 import { AuthorityOverView } from "./authority-over-view";
 import { TeamComponentsView } from "./team-components-view";
 import { ComponentDependenciesView } from "./component-dependencies-view";
+import { EntitiesView } from "./entities-view";
 
 export type ViewComponent = () => ReactElement;
 
@@ -44,6 +45,12 @@ export const views: ViewDefinition[] = [
     title: "Component Dependencies",
     description: "Dependency graph between components.",
     component: ComponentDependenciesView,
+  },
+  {
+    slug: "entities",
+    title: "Entities",
+    description: "Any entity type as a filterable table, exportable to CSV.",
+    component: EntitiesView,
   },
 ];
 

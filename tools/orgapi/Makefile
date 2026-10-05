@@ -1,6 +1,6 @@
 # Convenience targets for running orgapi locally. See README.md for DATA_DIR/TERRAFORM_BIN.
 #
-# Every target runs inside the root Dockerfile's `python` image by default (RUN_IN_DOCKER=1).
+# Every target runs inside the root Dockerfile's `core` image by default (RUN_IN_DOCKER=1).
 # Set RUN_IN_DOCKER=0 to run natively (needs uv on PATH).
 
 SHELL := /bin/bash
@@ -54,13 +54,13 @@ DOCKER_RUN = docker run --rm --init -e TINI_KILL_PROCESS_GROUP=true -v $(ROOT):/
 ifeq ($(RUN_IN_DOCKER),1)
 
 install: docker-image
-	$(DOCKER_RUN) orgcanon:python make _install
+	$(DOCKER_RUN) orgcanon:core make _install
 dev: docker-image
-	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon:python make _dev DATA_DIR=$(DATA_DIR) TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
+	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon:core make _dev DATA_DIR=$(DATA_DIR) TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
 dev-%: docker-image
-	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon:python make _dev DATA_DIR=$(EXAMPLES_DIR)/$* TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
+	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon:core make _dev DATA_DIR=$(EXAMPLES_DIR)/$* TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
 test: docker-image
-	$(DOCKER_RUN) orgcanon:python make _test
+	$(DOCKER_RUN) orgcanon:core make _test
 
 else
 
@@ -75,7 +75,7 @@ endif
 # Owned by the root Makefile (the Dockerfile lives there) -- this just triggers it, so the
 # `docker build` command itself exists in exactly one place.
 docker-image:
-	$(MAKE) -C $(ROOT) docker-image-python
+	$(MAKE) -C $(ROOT) docker-image-core
 
 _install:
 	uv sync

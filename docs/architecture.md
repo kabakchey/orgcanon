@@ -261,9 +261,12 @@ just enough to know *why* the code looks the way it does before you change it.
   virtualenv, lockfile, and pinned Python version with no separate install step, the same
   self-contained-toolchain shape as Terraform's own version pinning.
 - **All dev/CI tooling installs route through one Dockerfile, Docker-first by default.** The
-  root [`Dockerfile`](../Dockerfile) is a multi-stage build (`terraform`-only, `terraform` +
-  `python` for orgapi, `terraform` + `node` for orgviewer); every Makefile here (root,
-  `tools/orgapi/`, `tools/orgviewer/`) runs its targets inside the matching image by default
+  root [`Dockerfile`](../Dockerfile) is a single stage on `python:3.12-slim` whose `TOOLCHAINS`
+  build arg (any of `terraform`, `gh`, `uv`, `node`) picks what else gets installed. Its default
+  (`terraform gh uv`) builds `orgcanon:core`, covering validation and orgapi; `orgcanon:node`
+  (`terraform node`) covers orgviewer, so Node/pnpm stay out of every validation run. Every
+  Makefile here (root, `tools/orgapi/`, `tools/orgviewer/`) runs its targets inside the matching
+  image by default
   (`RUN_IN_DOCKER=1`), so Docker plus `make` are the only real local prerequisites — set
   `RUN_IN_DOCKER=0` to fall back to native execution instead, which expects `terraform`/`uv`/pnpm
   already on `PATH` rather than installing them. `check-orgapi`/`check-orgviewer` are now part of CI and pre-commit alongside
@@ -295,7 +298,15 @@ just enough to know *why* the code looks the way it does before you change it.
   edges** — not a separate page per relationship. Chain-of-command and authority-over are
   relationships *on top of* the same org tree, not separate graphs, so they render as
   distinctly-styled overlay edges on one react-flow canvas rather than a separate
-  list/breadcrumb page each.
+  list/breadcrumb page each. This is about relationship views; the entities table below is
+  deliberately not one.
+- **orgviewer's entities table derives its columns from the data and filters/exports in the
+  browser.** Columns are whatever fields orgapi returned (nested ones flattened), not a column
+  list kept in orgviewer — a third hand-maintained copy of the schema would go stale silently,
+  and freeform map keys (`external_references`, `extensions`) can only come from data anyway.
+  Filtering and CSV export run client-side over the whole collection, with no orgapi export
+  endpoint: orgapi's own filters are exact-match on scalar fields only, and the export has to be
+  exactly the filtered, reordered table the user is looking at.
 - **orgviewer's routes are hash-based, prefixed `/ui`.** Browser-History-API routing would need
   the host to serve `index.html` for any unrecognized path — a per-host config step that can't be
   verified without knowing the eventual host. Hash-based routing (`/ui/#/views/...`) means the

@@ -7,13 +7,9 @@ import {
   reverseConnectionsFor,
   type EntityConnection,
 } from "../lib/orgapi/direct-connections";
-import { ORG_DATA_OUTPUT_KEYS, type OrgData } from "../lib/orgapi/types";
+import { isEntityKey, type OrgData } from "../lib/orgapi/types";
 
 type EntitySources = Partial<Record<keyof OrgData, Record<string, unknown>>>;
-
-function isEntityKey(value: string): value is keyof OrgData {
-  return (ORG_DATA_OUTPUT_KEYS as readonly string[]).includes(value);
-}
 
 function labelFor(entity: Record<string, unknown>, id: string): string {
   if (typeof entity.name === "string") return entity.name;
@@ -103,7 +99,9 @@ function EntityById({ entityKey, id }: { entityKey: keyof OrgData; id: string })
   return (
     <div className="entity-detail">
       <div className="entity-header">
-        <span className="entity-type-badge">{entityKey}</span>
+        <Link to={`/views/entities?entity=${entityKey}`} className="entity-type-badge">
+          {entityKey}
+        </Link>
         <h2 className="entity-name">{labelFor(entity, id)}</h2>
       </div>
       <section className="entity-card">

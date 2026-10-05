@@ -3,11 +3,12 @@
 <img src="../../docs/assets/mascot/mascot-square.png" alt="OrgCanon mascot: a bee wearing a hardhat" width="160" />
 
 A static single-page app that visualizes org structure (org tree, chain of command, authority,
-team components, component dependencies) as react-flow graphs. It has no backend of its own --
-all data comes from [`orgapi`](../orgapi/README.md) over HTTP. It's a Vite/React SPA rather than
-the original Next.js design, since Org Viewer ships as a static bundle to an arbitrary static
-host with no server-side work left once OrgAPI exists to serve the data; its routes are
-hash-based under `/ui` so no host-specific rewrite/fallback config is needed. See
+team components, component dependencies) as react-flow graphs, plus a table of any entity type
+that exports to CSV. It has no backend of its own -- all data comes from
+[`orgapi`](../orgapi/README.md) over HTTP. It's a Vite/React SPA rather than the original Next.js
+design, since Org Viewer ships as a static bundle to an arbitrary static host with no server-side
+work left once OrgAPI exists to serve the data; its routes are hash-based under `/ui` so no
+host-specific rewrite/fallback config is needed. See
 [`../../docs/architecture.md`](../../docs/architecture.md#key-design-decisions) for the full
 reasoning.
 
@@ -94,6 +95,41 @@ your zoom and holds one card still on screen: the card whose fold button you cli
 the selected card. If neither card is in both the old and the new layout, the camera stays where
 it was.
 
+## Entities table
+
+The `entities` view lists any one entity type as a table: one row per entity, switched with the
+tabs at the top (`people` by default). It's the one view that isn't a graph -- it exists to list,
+filter and export, not to show a relationship.
+
+Columns come from the data OrgAPI returns, not from a column list kept in this app, so a field
+added to the schema shows up with no change here. Nested fields flatten into dotted columns
+(`reviewable.owner`, `external_references.github_accountname`, `extensions.hr.hiring_type`); a list
+of ids is one column joined with `; `; a list of objects (`members`, `positions`) is one column
+with each item written as `key=value, key=value`. References show the Entity ID, linked to that
+entity's page, and the first column is always the row's own `id`.
+
+The **Columns** button picks which columns are shown and in what order (checkboxes, plus up/down
+buttons). By default `id`, the plain fields and lists of ids are shown; flattened columns, object
+lists and `description` start hidden. The layout is remembered per entity type in `localStorage`
+and comes back when you switch to that type's tab; **Reset to default** forgets it.
+
+The row under the header filters: each box matches a case-insensitive substring of that column's
+text, and filters on several columns must all match. A lone `-` matches only empty cells (e.g.
+teams with no `head_deputy`). True/false columns get an any/true/false dropdown instead. Clicking
+a header sorts by it -- ascending, then descending, then off. Hiding a column drops its filter and
+sort, so nothing you can't see narrows the table.
+
+**Export CSV** downloads `<entity>.csv` with exactly what's on screen: the visible columns in
+their order, the rows that pass the filters, in the current sort order. It's comma-separated with
+a header row of column names, UTF-8 with a byte-order mark (so Excel reads non-ASCII names
+correctly), and any value starting with `=`, `+`, `-` or `@` is prefixed with `'` so a spreadsheet
+doesn't run it as a formula.
+
+Everything but the remembered layout is in the query string, so a copied link reopens the same
+table: `entity`, `cols` (comma-separated, omitted for the default layout), `sort` (a column name,
+`-` prefix for descending) and one `f.<column>` per filter, e.g.
+`#/views/entities?entity=teams&cols=id,name,head&sort=-name&f.head=alice`.
+
 ## Tests
 
 `tests/lib/orgapi/` -- the base-URL resolution/persistence, the orgapi fetch client (URL/query
@@ -108,3 +144,8 @@ render edges at all, which jsdom doesn't provide, so props are captured directly
 
 `tests/lib/relationships/` and `tests/components/` -- unchanged pure-function/component tests,
 unaffected by the orgapi rework.
+
+`tests/lib/table/` -- the entities table's pure pipeline (deriving columns and rows from a
+collection, filtering/sorting, CSV serialization, URL-param handling, layout memory), with no
+rendering. `tests/views/entities-view.test.tsx` covers the same pipeline end to end through the UI,
+including the exact CSV handed to the download.

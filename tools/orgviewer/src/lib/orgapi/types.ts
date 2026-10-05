@@ -143,3 +143,7 @@ export const ORG_DATA_OUTPUT_KEYS = [
   "authority_lines",
   "components",
 ] as const satisfies readonly (keyof OrgData)[];
+
+export function isEntityKey(value: string): value is keyof OrgData {
+  return (ORG_DATA_OUTPUT_KEYS as readonly string[]).includes(value);
+}

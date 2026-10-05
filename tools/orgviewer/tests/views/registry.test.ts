@@ -7,7 +7,7 @@ describe("views registry", () => {
     expect(new Set(slugs).size).toBe(slugs.length);
   });
 
-  it("has exactly the 5 initial views", () => {
+  it("has exactly the 6 views", () => {
     expect(views.map((v) => v.slug).sort()).toEqual(
       [
         "org-tree",
@@ -15,6 +15,7 @@ describe("views registry", () => {
         "authority-over",
         "team-components",
         "component-dependencies",
+        "entities",
       ].sort()
     );
   });

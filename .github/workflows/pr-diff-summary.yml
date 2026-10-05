@@ -1,7 +1,7 @@
 # Informational only -- never blocks a PR. GitLab equivalent: .gitlab-ci.yml's mr-diff-summary
 # job, calling the same diff-summary/post-review-comment Make targets with different
-# PLATFORM/REPO/PR_NUMBER values. Runs inside the root Dockerfile's image; `gh` lives in the
-# `terraform` stage for exactly this.
+# PLATFORM/REPO/PR_NUMBER values. Runs inside the root Dockerfile's `core` image, which carries
+# `gh` for exactly this.
 name: PR org-data diff summary
 
 on:

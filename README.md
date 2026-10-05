@@ -260,7 +260,9 @@ For how these pieces relate, see [`docs/architecture.md`](./docs/architecture.md
 
 Requirements: `make` and [Docker](https://docs.docker.com/get-docker/). Every Makefile target
 runs inside an image built from the root [`Dockerfile`](./Dockerfile) by default — Terraform,
-Python, and Node/pnpm all get installed there, pinned to the Dockerfile's own `TF_VERSION`
+Python, and Node/pnpm all get installed there (which ones is picked by its `TOOLCHAINS` build
+arg: a bare `docker build .` gives everything validation and orgapi need, and
+`--build-arg TOOLCHAINS="terraform node"` gives orgviewer's image), pinned to the Dockerfile's own `TF_VERSION`
 build arg, its own Python base image tag, and
 [`tools/orgviewer/package.json`](./tools/orgviewer/package.json)'s `engines`/`packageManager`
 respectively, so nothing else needs installing locally. Set `RUN_IN_DOCKER=0` (e.g. `make check
