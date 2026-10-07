@@ -19,6 +19,8 @@ there.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -371,6 +373,57 @@ class Component(ComponentRecord):
     """A Component with its Entity ID spliced in."""
 
     id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+
+
+
+class TeamPerson(_Strict):
+    """One thing one person holds on one team: its headship, a Role, or an AuthorityLine over
+    it -- either as the holder or as that holder's deputy. A person holding several things on
+    the same team appears once per holding."""
+
+    person: Person = Field(description="The person this holding belongs to.")
+    kind: Literal["head", "role", "authority_line"] = Field(
+        description=(
+            "What is held: `head` (formal line management of the team), `role` (a Role from "
+            "the team's `members`), or `authority_line` (functional/advisory authority over "
+            "the team)."
+        )
+    )
+    deputy_for: str | None = Field(
+        description=(
+            "Null when this person is the holder. When they are the holder's deputy instead, "
+            "the Entity ID into `people` of the holder they back up."
+        )
+    )
+    is_interim: bool = Field(
+        description="Whether this holding is a temporary stand-in rather than a permanent appointment."
+    )
+    title: str | None = Field(
+        default=None,
+        description=(
+            "Display title for this holding: the head's or head deputy's title, or a Role "
+            "holder's membership title. Null for Role deputies and for AuthorityLines, which "
+            "carry no title of their own."
+        ),
+    )
+    role: str | None = Field(
+        default=None, description="Entity ID into `roles`; set only when `kind` is `role`."
+    )
+    role_name: str | None = Field(
+        default=None, description="Display name of `role`; set only when `kind` is `role`."
+    )
+    authority_line: str | None = Field(
+        default=None,
+        description="Entity ID into `authority_lines`; set only when `kind` is `authority_line`.",
+    )
+    authority_line_type: str | None = Field(
+        default=None,
+        description="Entity ID into `authority_line_types`; set only when `kind` is `authority_line`.",
+    )
+    authority_line_type_title: str | None = Field(
+        default=None,
+        description="Display title of `authority_line_type`; set only when `kind` is `authority_line`.",
+    )
 
 
 # Keys must match org-model/outputs.tf and OrgData's own attribute names.

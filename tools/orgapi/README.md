@@ -64,6 +64,45 @@ params.
 (same keys as above), each value the same unfiltered array `GET /{entity}` returns. No query
 params -- use this for a full snapshot instead of calling every `/{entity}` route separately.
 
+`GET /teams/{team_id}/people` resolves who holds what on one team. It returns one entry per
+holding -- the team's head, every Role in its `members`, and every AuthorityLine over it -- each
+followed by its deputy, if it has one:
+
+```json
+{
+  "person": { "id": "bob-santos", "name": "...", "...": "the full /people/{id} record" },
+  "kind": "role",
+  "deputy_for": null,
+  "is_interim": false,
+  "title": "Platform Owner",
+  "role": "platform-owner",
+  "role_name": "Platform Owner",
+  "authority_line": null,
+  "authority_line_type": null,
+  "authority_line_type_title": null
+}
+```
+
+- `kind` is `head`, `role`, or `authority_line`; `role`/`role_name` and `authority_line`/
+  `authority_line_type`/`authority_line_type_title` are set only for their own kind.
+- `role_name` and `authority_line_type_title` are the display names of the Role and the
+  AuthorityLine's type -- the same for every holder, unlike `title`.
+- `deputy_for` is null on the holder's own entry and, on a deputy's entry, the id of the holder
+  they back up -- two people sharing a Role each have their own deputy.
+- `title` is the head's/head deputy's title or a Role holder's membership title; Role deputies
+  and AuthorityLines have none.
+- A person holding several things on the team appears once per holding.
+- Only AuthorityLines active today (UTC) are included: started, and not ended before today.
+- Nothing cascades: a parent team's head, or an AuthorityLine that doesn't list this team, isn't
+  returned.
+
+Optional query params narrow the list and combine with AND, so each call asks for one thing:
+`kind`, `role` (a role id), `authority_line_type` (an authority line type id), and
+`is_deputy=true|false`. For example `?kind=head&is_deputy=false` is the team's head,
+`?role=platform-owner` is everyone holding or deputising for that Role, and
+`?authority_line_type=tech-lead` is the team's tech lead and their deputy. A filter that matches
+nothing returns `[]`; an unknown `team_id` is a 404.
+
 ## Filtering
 
 Query params match the entity's **scalar fields only** (`str`, `bool`, and reference-id
@@ -86,7 +125,7 @@ Every route above is also exposed as an MCP tool, mounted at `/mcp` on the same 
 are generated from the app's own OpenAPI schema by
 [`fastapi-mcp`](https://github.com/tadata-org/fastapi_mcp) --
 `list_{entity}` and `get_{entity}_by_id` per entity (18 tools), plus `get_all` and
-`get_team_people_by_position`, 20 tools total, with the same filter arguments as the REST query
+`get_team_people`, 20 tools total, with the same filter arguments as the REST query
 params. There's nothing to hand-maintain here: add or change a route and its MCP tool follows
 automatically.
 

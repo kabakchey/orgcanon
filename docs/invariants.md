@@ -292,7 +292,8 @@ acyclicity above) to enforce it.
 - A team with an empty `members` list -- not necessarily wrong (a newly created team, or one
   whose only "member" is its `head`), but worth a human glance.
 - An `external_references` value that's empty or whitespace-only -- likely a placeholder that
-  was never filled in.
+  was never filled in. (Key names aren't checked at all; see
+  [external references](./external-references.md) for the ones to use.)
 
 ## Tooling caveat (Terraform-specific, not an invariant)
 

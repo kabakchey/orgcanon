@@ -71,4 +71,10 @@ RUN case " $TOOLCHAINS " in *" node "*) ;; *) exit 0 ;; esac \
     && corepack prepare --activate \
     && pnpm install --frozen-lockfile
 
+COPY tools/orgconfluence/package.json tools/orgconfluence/pnpm-lock.yaml /app/tools/orgconfluence/
+RUN case " $TOOLCHAINS " in *" node "*) ;; *) exit 0 ;; esac \
+    && cd /app/tools/orgconfluence \
+    && corepack prepare --activate \
+    && pnpm install --frozen-lockfile
+
 COPY . /app

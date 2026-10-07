@@ -62,3 +62,12 @@ jobs:
 
       - name: orgviewer tests
         run: make check-orgviewer
+
+  # Same reasoning as validate-examples -- delete this job if tools/orgconfluence goes away.
+  validate-orgconfluence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: orgconfluence tests
+        run: make check-orgconfluence

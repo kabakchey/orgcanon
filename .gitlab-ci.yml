@@ -63,6 +63,17 @@ validate-orgviewer:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
+# Same reasoning as validate-examples -- delete this job if tools/orgconfluence goes away.
+validate-orgconfluence:
+  stage: validate
+  before_script:
+    - apk add --no-cache make git
+  script:
+    - make check-orgconfluence
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
 # GitHub equivalent: pr-diff-summary.yml, calling the same diff-summary/post-review-comment
 # targets with different PLATFORM/env values. Needs a GITLAB_MR_TOKEN CI/CD variable (project
 # access token, `api` scope) -- GitLab's built-in CI_JOB_TOKEN has known Notes-API permission

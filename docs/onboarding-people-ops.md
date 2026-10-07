@@ -35,7 +35,7 @@ The files use plain `key = "value"` syntax with nested `{ }` blocks. The fields 
 | `email` | Their work email — must be unique across everyone in the system | `"alice@example.com"` |
 | `primary_specialization` | Their main area of expertise, free text | `"Backend Engineering"` |
 | `secondary_specializations` | Other areas they work in, if any | `["Data Engineering"]` |
-| `external_references` | Links to accounts in other systems, e.g. GitHub username | `{ github_accountname = "anguyen" }` |
+| `external_references` | Their ids in other systems, e.g. GitHub username — use the exact key names listed in [external references](./external-references.md) | `{ github_accountname = "anguyen" }` |
 | `documentation_url` | Link to their personal profile or similar, if any — leave as `""` if there isn't one | `"https://example.com/people/anguyen"` |
 | `positions` | Their job title history — see below | (see worked example) |
 | `reviewable.expiration_date` | The date this record should next be double-checked for accuracy | `"2027-01-15"` |

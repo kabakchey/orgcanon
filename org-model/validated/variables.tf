@@ -97,7 +97,7 @@ variable "people" {
     email                     = string
     primary_specialization    = string
     secondary_specializations = list(string)
-    external_references       = map(string) # e.g. { github_accountname = "bblabla" }
+    external_references       = map(string) # e.g. { github_accountname = "bblabla" }; key names: docs/external-references.md
     documentation_url         = string      # link to the personal profile or similar
 
     positions = list(object({

@@ -10,4 +10,5 @@ examples/*/.terraform/
 tools/orgapi/tests/fixtures/orgdata/.terraform/
 tools/orgapi/.venv/
 tools/orgviewer/node_modules/
+tools/orgconfluence/node_modules/
 **/__pycache__/

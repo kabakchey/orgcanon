@@ -227,6 +227,9 @@ tools/
   orgapi/             Python/FastAPI service — loads org-model/ once at startup and re-exposes
                       it as a filterable HTTP API plus an MCP server
   orgviewer/          Vite/React SPA — fetches from orgapi and renders the org/component graphs
+  orgconfluence/      Atlassian Forge app — Confluence macros that expand a position on a team
+                      into whoever holds it now, or an entity's id into its current name,
+                      asking orgapi on every page view
 
 docs/
   invariants.md        the source of truth for what must hold, independent of how it's enforced
@@ -235,12 +238,14 @@ docs/
   architecture.md        how org-model/, orgapi, and orgviewer relate, the reasoning behind every
                           non-obvious design decision, and where to start
   asking-questions-via-mcp.md   how to connect an MCP client to orgapi's generated MCP server
+  external-references.md   which key to file each other-system identifier under, and which
+                          keys tooling reads
 
 CONTEXT.md             the glossary — precise definitions for every domain term
 .github/workflows/, .gitlab-ci.yml, .pre-commit-config.yaml   CI, all delegating to the Makefile
 Makefile                single source of truth for prerequisite installation + validation commands
 Dockerfile              the one place Terraform/Python/Node toolchains get installed — every
-                        Makefile (this one, tools/orgapi/, tools/orgviewer/) runs its targets
+                        Makefile (this one and each tools/*/) runs its targets
                         inside it by default
 ```
 
@@ -262,13 +267,13 @@ Requirements: `make` and [Docker](https://docs.docker.com/get-docker/). Every Ma
 runs inside an image built from the root [`Dockerfile`](./Dockerfile) by default — Terraform,
 Python, and Node/pnpm all get installed there (which ones is picked by its `TOOLCHAINS` build
 arg: a bare `docker build .` gives everything validation and orgapi need, and
-`--build-arg TOOLCHAINS="terraform node"` gives orgviewer's image), pinned to the Dockerfile's own `TF_VERSION`
+`--build-arg TOOLCHAINS="terraform node"` gives orgviewer's and orgconfluence's image), pinned to the Dockerfile's own `TF_VERSION`
 build arg, its own Python base image tag, and
 [`tools/orgviewer/package.json`](./tools/orgviewer/package.json)'s `engines`/`packageManager`
 respectively, so nothing else needs installing locally. Set `RUN_IN_DOCKER=0` (e.g. `make check
 RUN_IN_DOCKER=0`) to run natively instead — then `terraform`/`python3` are the assumed
 prerequisites for this section, plus `uv`/Node+pnpm if you're also touching
-`tools/orgapi`/`tools/orgviewer` natively.
+anything under `tools/` natively.
 
 ```sh
 make check      # fmt + validate + plan + team-hierarchy cycle check -- the full pipeline
@@ -291,9 +296,10 @@ exit 0: `make check-friendly` (plain-English validation errors) and `make report
 (Reviewables past their `expiration_date`, or set more than a year out) is not one of these — it's
 a hard gate, part of `make check`.
 
-`make check-orgapi` and `make check-orgviewer` run [`tools/orgapi`](./tools/orgapi/)'s and
-[`tools/orgviewer`](./tools/orgviewer/)'s own test suites — separate targets from `check` (same
-reasoning as `check-examples` below), also wired into CI and pre-commit.
+`make check-orgapi`, `make check-orgviewer` and `make check-orgconfluence` run
+[`tools/orgapi`](./tools/orgapi/)'s, [`tools/orgviewer`](./tools/orgviewer/)'s and
+[`tools/orgconfluence`](./tools/orgconfluence/)'s own test suites — separate targets from `check`
+(same reasoning as `check-examples` below), also wired into CI and pre-commit.
 
 `org-model/common/org.tf` ships with a placeholder root team (`your-organization` / a
 `replace-me` person) rather than real data — `make check` passes against it out of the box, but
@@ -394,6 +400,12 @@ Today, the realistic path is to fork or vendor.
   `orgviewer` relate, and the reasoning behind every non-obvious design decision.
 - [`docs/asking-questions-via-mcp.md`](./docs/asking-questions-via-mcp.md) — how to connect an
   MCP client and ask natural-language questions about the org.
+- [`docs/external-references.md`](./docs/external-references.md) — where identifiers for other
+  systems (Atlassian, GitHub, Slack, ...) go, the exact key names to use, and which ones tooling
+  reads.
+- [`tools/orgconfluence/README.md`](./tools/orgconfluence/README.md) — the Confluence macros that
+  show who holds a position or what an entity is called now, and how to deploy them to your own
+  Atlassian site.
 
 ## Contributing
 

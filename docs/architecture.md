@@ -4,9 +4,9 @@ This is the tech-facing map of the repo: what the three pieces are, how they dep
 other, where the code actually lives, and the reasoning behind each major design decision. If
 you want the non-technical picture instead, see [`docs/for-management.md`](./for-management.md).
 
-## The three pieces and how they relate
+## The pieces and how they relate
 
-The repo is three components with a strict, one-directional dependency chain — nothing
+The repo is four components with a strict, one-directional dependency chain — nothing
 downstream is ever consumed by anything upstream of it:
 
 1. **`org-model/`** — Terraform data (no `resource`/`provider` blocks, no `apply` against real
@@ -24,8 +24,12 @@ downstream is ever consumed by anything upstream of it:
    shelled out to `terraform` itself was superseded once orgapi existed to serve the same data
    over HTTP). It never touches Terraform; it fetches from orgapi over HTTP, client-side, per
    view, and renders the graph.
+4. **`tools/orgconfluence`** — an Atlassian Forge app for Confluence Cloud: inline macros that
+   store a position on a team, or one entity's id, and on every page view ask orgapi who holds
+   it or what it is called now. Like orgviewer
+   it never touches Terraform and holds no org data of its own.
 
-**Neither `orgapi` nor `orgviewer` re-implements or re-validates the schema.** Both trust
+**Nothing downstream of `org-model/` re-implements or re-validates the schema.** All of it trusts
 Terraform's own evaluated JSON output as-is — the same "don't build a second parser/validator
 for data Terraform already checked" principle behind `scripts/check_team_hierarchy.py` (the one
 check — team-hierarchy cycle detection — that lives outside a Terraform `validation` block
@@ -42,13 +46,15 @@ uv-managed package. `org_data.py` raises if a cycle is found, so orgapi's data g
 
 ```
 org-model/*.tf --(terraform plan + show -json)--> orgapi --(HTTP/MCP)--> orgviewer
-                                                       \
-                                                        --(same evaluated JSON)--> check_team_hierarchy.py
+                                             \          \
+                                              \          --(HTTP)--> orgconfluence
+                                               \
+                                                --(same evaluated JSON)--> check_team_hierarchy.py
 ```
 
 `orgapi` and `scripts/check_team_hierarchy.py` are two independent consumers of the same
 Terraform-evaluated JSON — neither one feeds the other. `orgviewer` never talks to Terraform at
-all; everything it renders came from `orgapi`.
+all; everything it renders came from `orgapi`. The same goes for `orgconfluence`.
 
 ## Repository layout
 
@@ -78,6 +84,16 @@ tools/
                           relationships/ (derive line-management, authority, and dependency
                           edges from raw entity data).
     tests/               component and view tests.
+  orgconfluence/       Atlassian Forge app — Confluence macros that expand a position on a
+                        team into its current holders, or an entity's id into its current name.
+                        See its own README.md for how to deploy it.
+    src/
+      position/          resolving a stored position against orgapi and formatting the result;
+                          nothing Confluence-specific.
+      entity/            the same for a reference to one entity.
+      orgapi/            the HTTP client for orgapi.
+      frontend/          the macros and their settings panels (Forge UI Kit).
+    tests/               unit tests for everything outside frontend/.
 scripts/
   check_team_hierarchy.py   real DFS cycle detection on team.parent_team, reading the same
                              Terraform-evaluated JSON orgapi does — the one invariant a
@@ -264,12 +280,12 @@ just enough to know *why* the code looks the way it does before you change it.
   root [`Dockerfile`](../Dockerfile) is a single stage on `python:3.12-slim` whose `TOOLCHAINS`
   build arg (any of `terraform`, `gh`, `uv`, `node`) picks what else gets installed. Its default
   (`terraform gh uv`) builds `orgcanon:core`, covering validation and orgapi; `orgcanon:node`
-  (`terraform node`) covers orgviewer, so Node/pnpm stay out of every validation run. Every
-  Makefile here (root, `tools/orgapi/`, `tools/orgviewer/`) runs its targets inside the matching
+  (`terraform node`) covers orgviewer and orgconfluence, so Node/pnpm stay out of every
+  validation run. Every Makefile here (root and each `tools/*/`) runs its targets inside the matching
   image by default
   (`RUN_IN_DOCKER=1`), so Docker plus `make` are the only real local prerequisites — set
   `RUN_IN_DOCKER=0` to fall back to native execution instead, which expects `terraform`/`uv`/pnpm
-  already on `PATH` rather than installing them. `check-orgapi`/`check-orgviewer` are now part of CI and pre-commit alongside
+  already on `PATH` rather than installing them. `check-orgapi`/`check-orgviewer`/`check-orgconfluence` are part of CI and pre-commit alongside
   the Terraform checks, not left untested as before. Containers run as root rather than a
   host-UID-mapped user — dependency-linking tools like `pnpm install`'s bin-linking step
   `chmod` files unconditionally, which only the owner (root, baked in at image-build time) can
@@ -312,6 +328,27 @@ just enough to know *why* the code looks the way it does before you change it.
   verified without knowing the eventual host. Hash-based routing (`/ui/#/views/...`) means the
   fragment never reaches the server, so the only real path any host needs to serve is
   `/ui/index.html`.
+- **orgconfluence is a Forge app each organisation deploys itself, and stores references, not
+  names.** A position macro holds a team plus a head/Role/AuthorityLine type, never the person;
+  an entity macro holds a type and id, never the name. Both ask orgapi on every page view, with no cache and no remembered last answer — a page showing an out-of-date holder
+  is worse than one saying it can't tell. It is a Forge UI Kit macro rather than a browser
+  extension or an iframe app so it renders for every reader with nothing to install and sits
+  inline in a sentence. Forge fixes an app's callable addresses in its manifest and calls them
+  from Atlassian's servers, so there is no shared, hosted copy: each organisation registers its
+  own, with its orgapi address and app id supplied as deploy-time variables.
+- **orgconfluence links a person to their Atlassian profile when the org data has their
+  Atlassian account id**, read from `external_references.atlassian_account_id`, keeping a small
+  second link to orgviewer; without the id the name links to orgviewer. It is a plain link rather
+  than a Confluence mention because a Forge macro can't render a working one. It is the first shipped tooling to read a
+  specific `external_references` key, which is why the keys are now listed in one place
+  ([`external-references.md`](./external-references.md)) with the ones tooling reads marked: a
+  freeform map only works as an integration point if everyone files an identifier under the same
+  name.
+- **The secret protecting an exposed orgapi is checked in front of orgapi, not by it.**
+  orgconfluence needs orgapi reachable from the internet and sends a shared secret as a bearer
+  token; whatever proxy exposes orgapi rejects requests without it. orgapi stays
+  authentication-free for the callers on its own network — orgviewer runs in the browser and
+  could not keep a secret anyway.
 - **orgapi allows CORS from any origin.** orgapi's base URL, from orgviewer's side, is a
   user-editable field that can point at an instance on a different origin with no reverse proxy
   unifying them (e.g. local dev). This is safe specifically because orgapi is read-only with no

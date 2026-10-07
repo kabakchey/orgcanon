@@ -39,7 +39,7 @@ locals {
       email                     = "priya.shah@example.com"
       primary_specialization    = "engineering-leadership"
       secondary_specializations = []
-      external_references       = {}
+      external_references       = { atlassian_account_id = "557058:f77d2441-c15f-49d1-964e-a9b5a8144389" }
       documentation_url         = "https://example.com/people/priya-shah"
       positions = [
         {

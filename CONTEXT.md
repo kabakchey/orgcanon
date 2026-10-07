@@ -110,10 +110,11 @@ at most one. A `Team.head`/`head_deputy` doesn't need a `Team.members` row to sa
 headship itself carry the primary-team designation instead.
 
 **External reference**:
-A freeform `map(string)` on an entity (`Person.external_references` today; extending to
-`Team`/`Component`) holding that entity's identifier in one specific downstream system, keyed
-by a `<system>_<field>` convention (e.g. `github_accountname`, `github_team_slug`,
-`github_repo`). Distinct from `extensions`: an external reference's value is always a single
+A freeform `map(string)` on a `Person`, `Team` or `Component` holding that entity's identifier
+in one specific downstream system, keyed by a `<system>_<field>` convention (e.g.
+`github_accountname`, `github_team_slug`, `github_repo`) -- see
+[`docs/external-references.md`](./docs/external-references.md) for the exact keys to use and
+which of them tooling reads. Distinct from `extensions`: an external reference's value is always a single
 string identifier used to *locate* the same entity in another system, never a blob of that
 system's own data — richer per-system data belongs in `extensions[<domain>]` instead. An
 entity absent from a given system just omits that key; a Population Module skips anything

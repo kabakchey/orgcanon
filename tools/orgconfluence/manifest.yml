@@ -1,0 +1,56 @@
+modules:
+  macro:
+    - key: org-position
+      title: OrgCanon position
+      description: Shows who currently holds a position on a team, from the org data model.
+      resource: position
+      render: native
+      layout: inline
+      resolver:
+        function: resolver
+      config:
+        resource: position-config
+        render: native
+        title: OrgCanon position
+        viewportSize: medium
+        openOnInsert: true
+    - key: org-entity
+      title: OrgCanon entity
+      description: Shows the current name of a person, team, component or other entity
+        from the org data model.
+      resource: entity
+      render: native
+      layout: inline
+      resolver:
+        function: resolver
+      config:
+        resource: entity-config
+        render: native
+        title: OrgCanon entity
+        viewportSize: medium
+        openOnInsert: true
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: position
+    path: src/frontend/position.tsx
+  - key: position-config
+    path: src/frontend/position-config.tsx
+  - key: entity
+    path: src/frontend/entity.tsx
+  - key: entity-config
+    path: src/frontend/entity-config.tsx
+permissions:
+  external:
+    fetch:
+      backend:
+        - address: ${ORGAPI_URL}
+app:
+  runtime:
+    name: nodejs24.x
+  id: ${FORGE_APP_ID}
+environment:
+  variables:
+    - ORGAPI_URL
+    - FORGE_APP_ID

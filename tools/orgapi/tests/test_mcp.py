@@ -15,7 +15,7 @@ pytestmark = pytest.mark.anyio
 EXPECTED_TOOL_NAMES = (
     {f"list_{key}" for key in ORG_DATA_OUTPUT_KEYS}
     | {f"get_{key}_by_id" for key in ORG_DATA_OUTPUT_KEYS}
-    | {"get_all", "get_team_people_by_position"}
+    | {"get_all", "get_team_people"}
 )
 
 
@@ -40,3 +40,14 @@ async def test_list_tool_filters_the_same_way_the_rest_query_param_does(mcp_sess
     tool_ids = {c["id"] for c in json.loads(tool_result.content[0].text)}
     rest_ids = {c["id"] for c in rest_response.json()}
     assert tool_ids == rest_ids == {"api", "web"}
+
+
+async def test_team_people_tool_matches_the_equivalent_rest_response(mcp_session, client):
+    tool_result = await mcp_session.call_tool(
+        "get_team_people", {"team_id": "platform", "kind": "head", "is_deputy": False}
+    )
+    rest_response = client.get(
+        "/teams/platform/people", params={"kind": "head", "is_deputy": False}
+    )
+
+    assert json.loads(tool_result.content[0].text) == rest_response.json()

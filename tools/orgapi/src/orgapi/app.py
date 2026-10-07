@@ -9,6 +9,7 @@ mechanism that exposes new data.
 import os
 import types
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -16,8 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi_mcp import FastApiMCP
 from pydantic import BaseModel, ConfigDict, create_model
 
-from .models import ENTITY_MODELS
+from .models import ENTITY_MODELS, Person, TeamPerson
 from .org_data import ORG_DATA_OUTPUT_KEYS, OrgData, load_org_data
+from .team_people import resolve_team_people
 
 _SCALAR_TYPES = (str, bool)
 
@@ -151,52 +153,51 @@ def _register_all_route(app: FastAPI) -> None:
 
 
 def _register_team_people_route(app: FastAPI) -> None:
-    """GET /teams/{team_id}/people?role=... or ?position=head|head_deputy -- resolves the
-    person(s) holding a given responsibility within one team. `role` looks up TeamMember.role
-    entries in team.members (0-many, e.g. two people can share a Role); `position` looks up
-    the team's own head/head_deputy scalar fields (see CONTEXT.md's "Line management"). Always
-    returns a list, even for position lookups, so callers don't need to branch on which query
-    param they used."""
-    _, person_response_model = ENTITY_MODELS["people"]
+    """GET /teams/{team_id}/people -- every holding on one team (see `team_people`), narrowed
+    by optional query params that combine with AND, like the entity list routes' filters."""
 
     async def get_team_people(
         team_id: str,
         org_data: Annotated[OrgData, Depends(get_org_data)],
+        kind: Literal["head", "role", "authority_line"] | None = None,
         role: str | None = None,
-        position: Literal["head", "head_deputy"] | None = None,
-    ) -> list[person_response_model]:  # type: ignore[valid-type]
-        if (role is None) == (position is None):
-            raise HTTPException(
-                status_code=400,
-                detail="Exactly one of `role` or `position` query params is required.",
-            )
-
-        team = org_data.teams.get(team_id)
-        if team is None:
+        authority_line_type: str | None = None,
+        is_deputy: bool | None = None,
+    ) -> list[TeamPerson]:
+        if team_id not in org_data.teams:
             raise HTTPException(status_code=404, detail=f"No teams entity with id {team_id!r}")
 
-        if position is not None:
-            person_ids = [team[position]] if team[position] is not None else []
-        else:
-            person_ids = [member["person"] for member in team["members"] if member["role"] == role]
-
+        # UTC, matching the `timestamp()`-based "today" org-model's own date validations use.
+        today = datetime.now(timezone.utc).date().isoformat()
+        filters = {"kind": kind, "role": role, "authority_line_type": authority_line_type}
         return [
-            person_response_model(id=person_id, **org_data.people[person_id])
-            for person_id in person_ids
+            TeamPerson(
+                **holding
+                | {"person": Person(id=holding["person"], **org_data.people[holding["person"]])}
+            )
+            for holding in resolve_team_people(org_data, team_id, today)
+            if all(value is None or holding.get(field) == value for field, value in filters.items())
+            and (is_deputy is None or (holding["deputy_for"] is not None) == is_deputy)
         ]
 
     app.add_api_route(
         "/teams/{team_id}/people",
         get_team_people,
         methods=["GET"],
-        response_model=list[person_response_model],
-        operation_id="get_team_people_by_position",
-        summary="Find who holds a role, or who leads, a specific team",
+        response_model=list[TeamPerson],
+        operation_id="get_team_people",
+        summary="Find who holds what on a specific team: head, Roles, AuthorityLines, and deputies",
         description=(
-            "Given a team_id, returns the person/people matching either `?role=<role-id>` "
-            "(who holds that Role on this team) or `?position=head|head_deputy` (who formally "
-            "leads this team). Use this to answer questions like 'who leads Team X' or "
-            "'who is the platform-owner on the platform squad'."
+            "Given a team_id, returns one entry per thing a person holds on that team: its "
+            "head, every Role in its members, and every currently active AuthorityLine over "
+            "it -- each followed by its deputy, if any (`deputy_for` names the holder a deputy "
+            "backs up; it is null on the holder's own entry). With no query params, returns "
+            "everything. Narrow with `kind=head|role|authority_line`, `role=<role-id>`, "
+            "`authority_line_type=<type-id>`, and `is_deputy=true|false`; params combine with "
+            "AND, so ask for one thing per call. Use this to answer questions like 'who leads "
+            "Team X' (`kind=head&is_deputy=false`), 'who is the platform-owner on the platform "
+            "squad and who covers for them' (`role=platform-owner`), or 'who is Team X's tech "
+            "lead' (`authority_line_type=tech-lead`). Nothing cascades from parent teams."
         ),
     )
 

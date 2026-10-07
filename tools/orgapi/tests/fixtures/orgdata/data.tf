@@ -222,12 +222,12 @@ locals {
       parent_team                 = "acme-hq"
       head                        = "bob-santos"
       head_title                  = "Software Engineer"
-      head_deputy                 = null
-      head_deputy_title           = null
+      head_deputy                 = "carol-diaz"
+      head_deputy_title           = "Deputy Lead"
       is_head_primary_team        = false
-      is_head_deputy_primary_team = null
+      is_head_deputy_primary_team = false
       is_head_interim             = false
-      is_head_deputy_interim      = null
+      is_head_deputy_interim      = true
       external_references         = { github_team_slug = "platform" }
       members = [
         {
@@ -235,9 +235,9 @@ locals {
           role              = "platform-owner"
           title             = "Platform Owner"
           is_primary_team   = true
-          deputy            = null
+          deputy            = "carol-diaz"
           is_interim        = false
-          is_deputy_interim = null
+          is_deputy_interim = false
         },
         {
           person            = "carol-diaz"
@@ -263,9 +263,41 @@ locals {
   authority_lines = {
     bob-tech-lead = {
       person            = "bob-santos"
-      deputy            = null
+      deputy            = "alice-nguyen"
       type              = "tech-lead"
       start_date        = "2024-03-01"
+      end_date          = null
+      teams             = ["platform"]
+      documentation_url = ""
+      is_interim        = false
+      is_deputy_interim = false
+      reviewable = {
+        expiration_date = "2027-01-01"
+        notes           = ""
+        owner           = "alice-nguyen"
+      }
+    }
+    carol-ended-tech-lead = {
+      person            = "carol-diaz"
+      deputy            = null
+      type              = "tech-lead"
+      start_date        = "2023-01-01"
+      end_date          = "2024-02-29"
+      teams             = ["platform"]
+      documentation_url = ""
+      is_interim        = false
+      is_deputy_interim = null
+      reviewable = {
+        expiration_date = "2027-01-01"
+        notes           = ""
+        owner           = "alice-nguyen"
+      }
+    }
+    alice-upcoming-tech-lead = {
+      person            = "alice-nguyen"
+      deputy            = null
+      type              = "tech-lead"
+      start_date        = "2999-01-01"
       end_date          = null
       teams             = ["platform"]
       documentation_url = ""

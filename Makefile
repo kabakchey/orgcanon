@@ -2,11 +2,11 @@
 # from .pre-commit-config.yaml, .github/workflows/validate.yml, and .gitlab-ci.yml -- see
 # docs/architecture.md's "Key design decisions" ("The orgapi/orgviewer stack").
 #
-# Every target here (and in tools/orgapi/Makefile, tools/orgviewer/Makefile) runs inside the
+# Every target here (and in each tools/*/Makefile) runs inside the
 # image built from the root Dockerfile by default (RUN_IN_DOCKER=1) -- Docker plus `make` are
 # the only local prerequisites. RUN_IN_DOCKER=0 runs natively instead, expecting the real
 # prerequisites already on PATH (terraform, python3, plus uv/Node+pnpm if you touch
-# orgapi/orgviewer natively).
+# anything under tools/ natively).
 #
 # "Outer" targets below (fmt, validate, check, ...) are what CI/pre-commit/humans call; under
 # RUN_IN_DOCKER=1 each wraps one `docker run` of the matching "_"-prefixed inner target, which
@@ -49,7 +49,7 @@ export TF_DATA_DIR PYTHONPYCACHEPREFIX
 .PHONY: install fmt init validate plan apply check-team-hierarchy check-retirement-confirmations \
 	check-reviewable-expiration check check-examples clean \
 	check-friendly report-data-quality diff-summary post-review-comment \
-	check-orgapi check-orgviewer \
+	check-orgapi check-orgviewer check-orgconfluence \
 	docker-image-core docker-image-node \
 	_fmt _init _validate _plan _apply _check-team-hierarchy _check-retirement-confirmations \
 	_check-reviewable-expiration _check _check-examples _diff-plans \
@@ -251,14 +251,16 @@ _check-examples:
 		$(TERRAFORM) -chdir=$$dir show -json $(PLAN_DIR)/$$(basename $$dir).tfplan | python3 scripts/check_team_hierarchy.py; \
 	done
 
-# orgapi/orgviewer own their own RUN_IN_DOCKER wrapping; these just delegate to `test`, same
-# per-tool target/job/hook pattern as check-examples above, so deleting either tool drops just
-# its own entry.
+# Each tool owns its own RUN_IN_DOCKER wrapping; these just delegate to `test`, same per-tool
+# target/job/hook pattern as check-examples above, so deleting a tool drops just its own entry.
 check-orgapi:
 	$(MAKE) -C tools/orgapi test
 
 check-orgviewer:
 	$(MAKE) -C tools/orgviewer test
+
+check-orgconfluence:
+	$(MAKE) -C tools/orgconfluence test
 
 # Cleans native DIST_DIR plus the Docker-side named volume -- the latter is otherwise never
 # touched, so it only grows across runs.

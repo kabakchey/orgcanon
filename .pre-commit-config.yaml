@@ -65,3 +65,11 @@ repos:
         language: system
         files: ^tools/orgviewer/
         pass_filenames: false
+
+      # Same reasoning as terraform-examples-check -- delete this entry if tools/orgconfluence goes away.
+      - id: orgconfluence-test
+        name: orgconfluence tests
+        entry: make check-orgconfluence
+        language: system
+        files: ^tools/orgconfluence/
+        pass_filenames: false
