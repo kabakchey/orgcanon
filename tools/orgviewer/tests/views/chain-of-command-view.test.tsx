@@ -1,30 +1,13 @@
 import { render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
+import { graphCanvasCalls } from "../fixtures/graph-canvas-mock";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
 import { findPickerTrigger, pickFromTree } from "../fixtures/tree-picker";
 
-const { graphCanvasCalls } = vi.hoisted(() => ({
-  graphCanvasCalls: [] as Array<{
-    nodes: Node[];
-    edges: Edge[];
-    selectedNodeId?: string;
-    defaultFoldedNodeIds?: Set<string>;
-  }>,
-}));
-vi.mock("../../src/components/graph-canvas", () => ({
-  GraphCanvas: (props: {
-    nodes: Node[];
-    edges: Edge[];
-    selectedNodeId?: string;
-    defaultFoldedNodeIds?: Set<string>;
-  }) => {
-    graphCanvasCalls.push(props);
-    return null;
-  },
-}));
+vi.mock("../../src/components/graph-canvas", () => import("../fixtures/graph-canvas-mock"));
+
 
 import { ChainOfCommandView } from "../../src/views/chain-of-command-view";
 

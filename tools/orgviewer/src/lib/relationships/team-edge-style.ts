@@ -1,4 +1,4 @@
-import { EDGE_STYLE } from "../../components/edge-styles";
+import { EDGE_STYLE } from "./edge-styles";
 import type { Team } from "../orgapi/types";
 
 export function teamEdgeStyle(parent: Team | undefined, child: Team | undefined) {

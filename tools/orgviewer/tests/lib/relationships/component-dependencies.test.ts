@@ -1,34 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildComponentDependencyGraph,
   computeDependencyCounts,
+  dependencyLinks,
   relatedComponentIds,
 } from "../../../src/lib/relationships/component-dependencies";
 import type { Component } from "../../../src/lib/orgapi/types";
+import { component } from "../../fixtures/entities";
 
-function component(overrides: Partial<Component> & { team: string }): Component {
-  return {
-    name: "C",
-    description: "",
-    documentation_url: "",
-    dependency_components: [],
-    is_end_user_facing: false,
-    type: "service",
-    reviewable: { expiration_date: "2027-01-01", notes: "", owner: "x" },
-    ...overrides,
-  };
-}
-
-describe("buildComponentDependencyGraph", () => {
-  it("builds one edge per dependency", () => {
+describe("dependencyLinks", () => {
+  it("builds one link per dependency", () => {
     const components: Record<string, Component> = {
       a: component({ team: "t", dependency_components: ["b"] }),
       b: component({ team: "t", dependency_components: [] }),
     };
 
-    const { nodeIds, edges } = buildComponentDependencyGraph(components);
-    expect(nodeIds.sort()).toEqual(["a", "b"]);
-    expect(edges).toEqual([{ from: "a", to: "b" }]);
+    expect(dependencyLinks(components)).toEqual([{ source: "a", target: "b" }]);
   });
 
   it("handles a cycle without crashing (cycles are legitimate, not an error)", () => {
@@ -37,11 +23,9 @@ describe("buildComponentDependencyGraph", () => {
       b: component({ team: "t", dependency_components: ["a"] }),
     };
 
-    const { nodeIds, edges } = buildComponentDependencyGraph(components);
-    expect(nodeIds.sort()).toEqual(["a", "b"]);
-    expect(edges.sort((x, y) => x.from.localeCompare(y.from))).toEqual([
-      { from: "a", to: "b" },
-      { from: "b", to: "a" },
+    expect(dependencyLinks(components)).toEqual([
+      { source: "a", target: "b" },
+      { source: "b", target: "a" },
     ]);
   });
 });

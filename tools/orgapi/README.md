@@ -1,7 +1,8 @@
 # OrgAPI
 
 Read-only HTTP API over the org-as-code data model (see the root `CONTEXT.md`): fetch by id,
-fetch-all, filter by basic attrs. No UI, no auth. It's Python/FastAPI (a pure JSON data API,
+fetch-all, filter by basic attrs. No auth, and no UI of its own -- though it can serve
+[`orgviewer`](../orgviewer/README.md)'s (see [Serving Org Viewer](#serving-org-viewer)). It's Python/FastAPI (a pure JSON data API,
 FastAPI's core use case) using `uv` for dependency management. See
 [`../../docs/architecture.md`](../../docs/architecture.md#key-design-decisions) for the full
 reasoning, including how its schema-drift test works and how its MCP layer is generated.
@@ -17,7 +18,11 @@ separately-running OrgAPI instance.
 make install   # uv sync
 make dev        # serves the real org-model/ data at http://127.0.0.1:8387, --reload on
 make test       # uv run pytest
+make check      # every check -- what `make check-orgapi` at the repo root, CI and pre-commit run
 ```
+
+These run inside the image built by the root `make docker-image`, which has to exist first --
+no target here builds it.
 
 `make dev-<name>` serves one of the `../../examples/<name>` directories instead, e.g.
 `make dev-single-team`, `make dev-three-level-hierarchy`, or `make dev-complex-org` (the biggest
@@ -29,12 +34,37 @@ Read once at process startup (see `src/orgapi/app.py`'s `lifespan`) -- if loadin
 reason (bad path, `terraform` not found, data that fails a Terraform `validation` block), the
 process exits before accepting any connections, rather than serving errors per request.
 
-- `DATA_DIR` (default `../../terraform`, relative to this directory) -- the Terraform root
+- `DATA_DIR` (default `../../org-model`, relative to this directory) -- the Terraform root
   module to serve.
 - `TERRAFORM_BIN` (default `terraform`, resolved via `PATH`) -- the `terraform` binary to shell out to.
+- `VIEWER_DIR` (default unset) -- a built `orgviewer` bundle to serve under `/ui`; see
+  [Serving Org Viewer](#serving-org-viewer).
 
 Host/port aren't app-level settings; use uvicorn's own flags (`uv run uvicorn orgapi.app:app
 --host --port`), which `make dev` already wires up for the default port.
+
+## Serving Org Viewer
+
+With `VIEWER_DIR` pointing at a built [`orgviewer`](../orgviewer/README.md) bundle, OrgAPI
+serves it at `/ui/` next to its own routes, so one process on one origin is the whole thing.
+Unset (or empty), OrgAPI is API-only. A `VIEWER_DIR` with no `index.html` in it stops the
+process at startup rather than serving 404s. Files are read per request, so a rebuilt bundle
+shows up on the next page load without a restart.
+
+- **In Docker** (the default): the image already contains a bundle and sets `VIEWER_DIR` to it,
+  so `make dev` serves Org Viewer at `http://127.0.0.1:8387/ui/`. That bundle is as fresh as
+  the last `make docker-image` (run from the repo root) -- rebuild the image to pick up
+  `orgviewer` changes.
+- **Natively**: build the bundle and point at it yourself. A relative path resolves against
+  this directory, like `DATA_DIR`:
+
+  ```
+  make -C ../orgviewer build RUN_IN_DOCKER=0            # -> ../orgviewer/.dist
+  make dev RUN_IN_DOCKER=0 VIEWER_DIR=../orgviewer/.dist
+  ```
+
+To work on `orgviewer` itself, run its own `make dev` (Vite, with hot reload) against this API
+instead -- see its README.
 
 ## Endpoints
 
@@ -139,6 +169,8 @@ is running.
 - `tests/test_api.py` -- endpoint behavior (fetch/filter/404/422) via FastAPI's `TestClient`,
   with the org-data dependency overridden to the fixture above (no real `terraform` call in
   these).
+- `tests/test_viewer.py` -- serving a bundle under `/ui`, against a stand-in directory rather
+  than a real `orgviewer` build.
 - `tests/test_schema_drift.py` -- the schema-drift check (round-trips real Terraform JSON
   through the Pydantic models so an added/removed field fails as an unexpected/missing key), run
   against both the real `org-model/` data and the fixture above.

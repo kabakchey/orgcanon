@@ -1,9 +1,12 @@
-import type { Edge } from "@xyflow/react";
+export interface Link {
+  source: string;
+  target: string;
+}
 
 // BFS from `nodeId` following edges in their forward direction (source -> target). Cycle-safe:
 // the `visited` set means a cycle in the underlying graph (e.g. component-dependencies' allowed
 // circular dependencies) is walked at most once per node instead of looping forever.
-export function reachableFrom(nodeId: string, edges: Edge[]): Set<string> {
+export function reachableFrom(nodeId: string, edges: Link[]): Set<string> {
   const bySource = new Map<string, string[]>();
   for (const edge of edges) {
     const targets = bySource.get(edge.source) ?? [];

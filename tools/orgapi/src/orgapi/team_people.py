@@ -1,7 +1,8 @@
-"""Resolves everyone holding something on one team -- its head, the Roles in its `members`
-rows, and the AuthorityLines scoped to it -- each with their deputy, as one flat list of
-holdings (see `models.TeamPerson`). Nothing cascades: only the team's own head, and only
-AuthorityLines whose `teams` names this exact team (see CONTEXT.md's "AuthorityLine").
+"""Resolves everyone holding something on one team, as one flat list of holdings.
+
+Covers its head, the Roles in its `members` rows, and the AuthorityLines scoped to it -- each
+with their deputy (see `models.TeamPerson`). Nothing cascades: only the team's own head, and
+only AuthorityLines whose `teams` names this exact team (see CONTEXT.md's "AuthorityLine").
 """
 
 from __future__ import annotations

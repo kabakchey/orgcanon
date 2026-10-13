@@ -83,7 +83,7 @@ export function componentTree(teams: Record<string, Team>, components: Record<st
   return [...regroup(teamTree(teams)), ...unowned.sort(byLabel)];
 }
 
-export const NO_LINE_MANAGER_LABEL = "(no line manager)";
+const NO_LINE_MANAGER_LABEL = "(no line manager)";
 
 export function lineManagementTree(teams: Record<string, Team>, people: Record<string, Person>): TreeItem[] {
   const managerOf = new Map(Object.keys(people).map((id) => [id, deriveLineManager(id, teams)]));

@@ -1,20 +1,13 @@
 import { render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
+import { graphCanvasCalls } from "../fixtures/graph-canvas-mock";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
 import { findPickerTrigger, pickFromTree } from "../fixtures/tree-picker";
 
-const { graphCanvasCalls } = vi.hoisted(() => ({
-  graphCanvasCalls: [] as Array<{ nodes: Node[]; edges: Edge[]; selectedNodeId?: string }>,
-}));
-vi.mock("../../src/components/graph-canvas", () => ({
-  GraphCanvas: (props: { nodes: Node[]; edges: Edge[]; selectedNodeId?: string }) => {
-    graphCanvasCalls.push(props);
-    return null;
-  },
-}));
+vi.mock("../../src/components/graph-canvas", () => import("../fixtures/graph-canvas-mock"));
+
 
 import { AuthorityOverView } from "../../src/views/authority-over-view";
 
@@ -45,6 +38,19 @@ describe("AuthorityOverView", () => {
         true
       )
     );
+  });
+
+  it("shows the fallback team in both the picker and the graph for an unknown teamId", async () => {
+    installMockOrgapiFetch();
+
+    render(
+      <MemoryRouter initialEntries={["/views/authority-over?teamId=no-such-team"]}>
+        <AuthorityOverView />
+      </MemoryRouter>
+    );
+
+    expect(await findPickerTrigger("Team")).toHaveAccessibleName("Team: Potuto");
+    expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.selectedNodeId).toBe("team:potuto");
   });
 
   it("shows the selected team, its authority-holders, and its line-management chain, edges referencing existing nodes", async () => {

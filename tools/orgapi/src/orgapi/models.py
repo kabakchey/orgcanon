@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 
 class _Strict(BaseModel):
@@ -34,10 +34,23 @@ _ENTITY_ID_DESCRIPTION = (
 )
 
 
+def _with_id(record: type[_Strict]) -> type[_Strict]:
+    name = record.__name__.removesuffix("Record")
+    article = "An" if name[0] in "AEIOU" else "A"
+    return create_model(
+        name,
+        __base__=record,
+        __module__=__name__,
+        __doc__=f"{article} {name} with its Entity ID spliced in.",
+        id=(str, Field(description=_ENTITY_ID_DESCRIPTION)),
+    )
+
+
 class Reviewable(_Strict):
-    """Review metadata attached to an entity (or a nested item within one), tracking who's
-    accountable for keeping it current and when it needs re-confirming. Repeated inline on
-    every entity below rather than factored out, since HCL has no type inheritance."""
+    """Review metadata attached to an entity, or to a nested item within one.
+
+    Tracks who is accountable for keeping the data current and when it needs re-confirming.
+    """
 
     expiration_date: str = Field(
         description="ISO-8601 date (YYYY-MM-DD) after which this data should be re-confirmed by its owner."
@@ -68,9 +81,11 @@ class Position(_Strict):
 
 
 class TeamMember(_Strict):
-    """One row in a Team's `members` list: a person's membership and area of responsibility
-    (Role) on that team. Distinct from `head`/`head_deputy`, which are the team's sole formal
-    line-management channel."""
+    """One row in a Team's `members` list: a person's membership and Role on that team.
+
+    Distinct from `head`/`head_deputy`, which are the team's sole formal line-management
+    channel.
+    """
 
     person: str = Field(description="Entity ID into `people`.")
     role: str = Field(
@@ -114,15 +129,14 @@ class FormalPositionTypeRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this position type.")
 
 
-class FormalPositionType(FormalPositionTypeRecord):
-    """A FormalPositionType with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+FormalPositionType = _with_id(FormalPositionTypeRecord)
 
 
 class AuthorityLineTypeRecord(_Strict):
-    """Category definition for functional/advisory leadership -- what an AuthorityLine's
-    `type` points to. Mirrors FormalPositionType."""
+    """Category definition for functional/advisory leadership.
+
+    What an AuthorityLine's `type` points to. Mirrors FormalPositionType.
+    """
 
     title: str = Field(
         description='Category title, e.g. "Mentor", "Tech Lead", "Scrum Master". Illustrative, not a closed list.'
@@ -132,15 +146,14 @@ class AuthorityLineTypeRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this category.")
 
 
-class AuthorityLineType(AuthorityLineTypeRecord):
-    """An AuthorityLineType with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+AuthorityLineType = _with_id(AuthorityLineTypeRecord)
 
 
 class TeamTypeRecord(_Strict):
-    """Category definition for Team -- what a Team's `type` points to. Mirrors
-    FormalPositionType/AuthorityLineType."""
+    """Category definition for Team -- what a Team's `type` points to.
+
+    Mirrors FormalPositionType/AuthorityLineType.
+    """
 
     title: str = Field(
         description='Category title, e.g. "department", "squad", "guild". Illustrative, not a closed list.'
@@ -150,15 +163,14 @@ class TeamTypeRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this category.")
 
 
-class TeamType(TeamTypeRecord):
-    """A TeamType with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+TeamType = _with_id(TeamTypeRecord)
 
 
 class ComponentTypeRecord(_Strict):
-    """Category definition for Component -- what a Component's `type` points to. Mirrors
-    FormalPositionType/AuthorityLineType/TeamType."""
+    """Category definition for Component -- what a Component's `type` points to.
+
+    Mirrors FormalPositionType/AuthorityLineType/TeamType.
+    """
 
     title: str = Field(
         description=(
@@ -177,15 +189,15 @@ class ComponentTypeRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this category.")
 
 
-class ComponentType(ComponentTypeRecord):
-    """A ComponentType with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+ComponentType = _with_id(ComponentTypeRecord)
 
 
 class PersonRecord(_Strict):
-    """A person in the org. Has no `line_manager` field -- line management is derived from
-    `teams[*].head`/`head_deputy`, not stored on Person."""
+    """A person in the org.
+
+    Has no `line_manager` field -- line management is derived from
+    `teams[*].head`/`head_deputy`, not stored on Person.
+    """
 
     name: str = Field(description="Full display name.")
     email: str = Field(description="Email address. Unique across all people.")
@@ -216,15 +228,14 @@ class PersonRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this person.")
 
 
-class Person(PersonRecord):
-    """A Person with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+Person = _with_id(PersonRecord)
 
 
 class RoleRecord(_Strict):
-    """Component/area-of-responsibility ownership within a team. Never leadership -- what a
-    TeamMember's `role` points to."""
+    """Component/area-of-responsibility ownership within a team.
+
+    Never leadership -- what a TeamMember's `role` points to.
+    """
 
     name: str = Field(description="Display name for this role.")
     description: str = Field(description="Human-readable description of this role.")
@@ -235,15 +246,14 @@ class RoleRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this role.")
 
 
-class Role(RoleRecord):
-    """A Role with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+Role = _with_id(RoleRecord)
 
 
 class AuthorityLineRecord(_Strict):
     """Functional/advisory leadership held by a Person, e.g. mentorship or tech-lead duties.
-    Never formal line-management -- that's `teams[*].head`/`head_deputy` instead."""
+
+    Never formal line-management -- that's `teams[*].head`/`head_deputy` instead.
+    """
 
     person: str = Field(description="Entity ID into `people` -- who holds this authority line.")
     deputy: str | None = Field(
@@ -267,15 +277,15 @@ class AuthorityLineRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this authority line.")
 
 
-class AuthorityLine(AuthorityLineRecord):
-    """An AuthorityLine with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+AuthorityLine = _with_id(AuthorityLineRecord)
 
 
 class TeamRecord(_Strict):
-    """A team in the org hierarchy. `head`/`head_deputy` are its sole formal line-management
-    channel, distinct from `members[*].role`."""
+    """A team in the org hierarchy.
+
+    `head`/`head_deputy` are its sole formal line-management channel, distinct from
+    `members[*].role`.
+    """
 
     name: str = Field(description="Display name.")
     type: str = Field(description="Entity ID into `team_types`.")
@@ -339,15 +349,14 @@ class TeamRecord(_Strict):
     )
 
 
-class Team(TeamRecord):
-    """A Team with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
+Team = _with_id(TeamRecord)
 
 
 class ComponentRecord(_Strict):
-    """A system component (service, repository, library, ...) owned by a team. No component
-    may be orphaned -- every component must reference an existing team."""
+    """A system component (service, repository, library, ...) owned by a team.
+
+    No component may be orphaned -- every component must reference an existing team.
+    """
 
     name: str = Field(description="Display name.")
     description: str = Field(description="Human-readable description of this component.")
@@ -369,17 +378,16 @@ class ComponentRecord(_Strict):
     reviewable: Reviewable = Field(description="Review metadata for this component.")
 
 
-class Component(ComponentRecord):
-    """A Component with its Entity ID spliced in."""
-
-    id: str = Field(description=_ENTITY_ID_DESCRIPTION)
-
+Component = _with_id(ComponentRecord)
 
 
 class TeamPerson(_Strict):
-    """One thing one person holds on one team: its headship, a Role, or an AuthorityLine over
-    it -- either as the holder or as that holder's deputy. A person holding several things on
-    the same team appears once per holding."""
+    """One thing one person holds on one team.
+
+    That is its headship, a Role, or an AuthorityLine over it -- either as the holder or as
+    that holder's deputy. A person holding several things on the same team appears once per
+    holding.
+    """
 
     person: Person = Field(description="The person this holding belongs to.")
     kind: Literal["head", "role", "authority_line"] = Field(

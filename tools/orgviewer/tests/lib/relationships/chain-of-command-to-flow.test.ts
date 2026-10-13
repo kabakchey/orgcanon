@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chainOfCommandToFlow } from "../../../src/lib/relationships/chain-of-command-to-flow";
 import type { OrgData } from "../../../src/lib/orgapi/types";
-import { EDGE_STYLE } from "../../../src/components/edge-styles";
+import { EDGE_STYLE } from "../../../src/lib/relationships/edge-styles";
 import orgData from "../../fixtures/three-level-org-data.json";
 
 const { teams, people } = orgData as unknown as OrgData;

@@ -1,72 +1,57 @@
 import { useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useEntities } from "../lib/orgapi/use-entities";
-import { findRootTeamId, orgTreeToFlow } from "../lib/relationships/org-tree-to-flow";
 import { GraphCanvas } from "../components/graph-canvas";
-import { useBooleanParam } from "../lib/use-boolean-param";
+import { ToolbarToggle } from "../components/toolbar-toggle";
 import { TreePicker } from "../components/tree-picker";
-import { useSelectParam } from "../lib/use-select-param";
+import { useOrgData } from "../lib/orgapi/use-entities";
 import { teamTree } from "../lib/picker/tree";
+import { findRootTeamId, orgTreeToFlow } from "../lib/relationships/org-tree-to-flow";
+import { useBooleanParam } from "../lib/use-boolean-param";
+import { usePickedParam } from "../lib/use-picked-param";
 import { withNodeSelect } from "../lib/with-node-select";
 
 export function OrgTreeView() {
-  const teams = useEntities("teams");
-  const people = useEntities("people");
-  const authorityLines = useEntities("authority_lines");
-  const authorityLineTypes = useEntities("authority_line_types");
-  const [searchParams] = useSearchParams();
-  const selectTeam = useSelectParam("teamId");
+  const { data, error } = useOrgData(["teams", "people", "authority_lines", "authority_line_types"]);
   const [showPeople, setShowPeople] = useBooleanParam("showPeople", true);
   const [showAuthorityLines, setShowAuthorityLines] = useBooleanParam("showAuthorityLines", false);
+  // The whole tree is always shown: the pick only drives the highlight and camera centering, and
+  // an unknown or missing teamId falls back to the root.
+  const [teamId, selectTeam] = usePickedParam(
+    "teamId",
+    (id) => data !== undefined && id in data.teams,
+    data && findRootTeamId(data.teams)
+  );
 
   const { nodes, edges } = useMemo(() => {
-    if (!teams.data || !people.data) return { nodes: [], edges: [] };
-    const { nodes: builtNodes, edges: builtEdges } = orgTreeToFlow(teams.data, people.data, "DOWN", {
+    if (!data) return { nodes: [], edges: [] };
+    const built = orgTreeToFlow(data.teams, data.people, {
       showPeople,
       showAuthorityLines,
-      authorityLines: authorityLines.data,
-      authorityLineTypes: authorityLineTypes.data,
+      authorityLines: data.authority_lines,
+      authorityLineTypes: data.authority_line_types,
     });
-    return { nodes: withNodeSelect(builtNodes, "team:", selectTeam), edges: builtEdges };
+    return { nodes: withNodeSelect(built.nodes, "team:", selectTeam), edges: built.edges };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teams.data, people.data, authorityLines.data, authorityLineTypes.data, showPeople, showAuthorityLines]);
-  const tree = useMemo(() => (teams.data ? teamTree(teams.data) : []), [teams.data]);
+  }, [data, showPeople, showAuthorityLines]);
+  const tree = useMemo(() => (data ? teamTree(data.teams) : []), [data]);
 
-  if (teams.error || people.error) {
-    return <div>Failed to load org data.</div>;
-  }
-  if (!teams.data || !people.data) {
-    return <div>Loading…</div>;
-  }
-
-  const rootTeamId = findRootTeamId(teams.data);
-  const requestedTeamId = searchParams.get("teamId") ?? undefined;
-  // Org Tree always shows the whole tree regardless of selection -- selection here only drives
-  // the highlight + camera centering, so an unknown/missing teamId just falls back to the root
-  // rather than ever leaving the view with nothing selected.
-  const teamId = requestedTeamId && teams.data[requestedTeamId] ? requestedTeamId : rootTeamId;
+  if (error) return <div>Failed to load org data.</div>;
+  if (!data) return <div>Loading…</div>;
 
   return (
     <div className="view-body">
       <div className="graph-toolbar">
-        <TreePicker label="Team" paramName="teamId" tree={tree} fallbackId={rootTeamId} />
-        <label className="graph-toolbar-toggle">
-          <input type="checkbox" checked={showPeople} onChange={(event) => setShowPeople(event.target.checked)} />
+        <TreePicker label="Team" tree={tree} value={teamId} onChange={selectTeam} />
+        <ToolbarToggle checked={showPeople} onChange={setShowPeople}>
           Show people
-        </label>
-        <label className="graph-toolbar-toggle">
-          <input
-            type="checkbox"
-            checked={showAuthorityLines}
-            onChange={(event) => setShowAuthorityLines(event.target.checked)}
-          />
+        </ToolbarToggle>
+        <ToolbarToggle checked={showAuthorityLines} onChange={setShowAuthorityLines}>
           Show authority lines
-        </label>
+        </ToolbarToggle>
       </div>
       <GraphCanvas
         nodes={nodes}
         edges={edges}
-        foldStorageKey="org-tree"
+        graphKey="org-tree"
         selectedNodeId={teamId ? `team:${teamId}` : undefined}
       />
     </div>

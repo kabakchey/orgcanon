@@ -222,6 +222,8 @@ scripts/
   summarize_org_diff.py     plain-English org-model diff summary, used by the PR-diff bot
   post_review_comment.py    posts/updates the PR-diff bot's comment on GitHub and GitLab
   orgcanon_cli.py                guided scaffolding for common edits (`add-person`, `add-team-member`)
+  plan_json.py              shared reader of `terraform show -json` plan documents
+  tests/                    unit tests for the scripts (`make check-scripts`, part of `make check`)
 
 tools/
   orgapi/             Python/FastAPI service — loads org-model/ once at startup and re-exposes
@@ -264,23 +266,25 @@ For how these pieces relate, see [`docs/architecture.md`](./docs/architecture.md
 ## Getting started
 
 Requirements: `make` and [Docker](https://docs.docker.com/get-docker/). Every Makefile target
-runs inside an image built from the root [`Dockerfile`](./Dockerfile) by default — Terraform,
-Python, and Node/pnpm all get installed there (which ones is picked by its `TOOLCHAINS` build
-arg: a bare `docker build .` gives everything validation and orgapi need, and
-`--build-arg TOOLCHAINS="terraform node"` gives orgviewer's and orgconfluence's image), pinned to the Dockerfile's own `TF_VERSION`
+runs inside one image built from the root [`Dockerfile`](./Dockerfile) by default — Terraform,
+Python, and Node/pnpm all get installed there, pinned to the Dockerfile's own `TF_VERSION`
 build arg, its own Python base image tag, and
 [`tools/orgviewer/package.json`](./tools/orgviewer/package.json)'s `engines`/`packageManager`
-respectively, so nothing else needs installing locally. Set `RUN_IN_DOCKER=0` (e.g. `make check
-RUN_IN_DOCKER=0`) to run natively instead — then `terraform`/`python3` are the assumed
-prerequisites for this section, plus `uv`/Node+pnpm if you're also touching
-anything under `tools/` natively.
+respectively, so nothing else needs installing locally. No target builds that image for you:
+run `make docker-image` once before anything else, and again whenever the Dockerfile or a
+dependency manifest changes, or you want the orgviewer bundle baked into it refreshed (see
+[`tools/orgapi/README.md`](./tools/orgapi/README.md#serving-org-viewer)). Set
+`RUN_IN_DOCKER=0` (e.g. `make check RUN_IN_DOCKER=0`) to run natively instead — then
+`terraform`/`python3` are the assumed prerequisites for this section, plus `uv`/Node+pnpm if
+you're also touching anything under `tools/` natively.
 
 ```sh
-make check      # fmt + validate + plan + team-hierarchy cycle check -- the full pipeline
+make docker-image   # build the tooling image -- explicit, never triggered by another target
+make check          # every check on org-model/ and scripts/ -- the full pipeline
 ```
 
-Individual steps (`make fmt`, `make validate`, `make plan`, `make check-team-hierarchy`) are
-also available — see the [`Makefile`](./Makefile). This is the same thing CI runs
+Individual steps (`make fmt`, `make validate`, `make apply`, `make check-team-hierarchy`,
+`make check-scripts`, ...) are also available — see the [`Makefile`](./Makefile). This is the same thing CI runs
 (`.github/workflows/validate.yml`, `.gitlab-ci.yml`) and what
 [`.pre-commit-config.yaml`](./.pre-commit-config.yaml) wires up locally via
 [pre-commit](https://pre-commit.com/):
@@ -298,7 +302,7 @@ a hard gate, part of `make check`.
 
 `make check-orgapi`, `make check-orgviewer` and `make check-orgconfluence` run
 [`tools/orgapi`](./tools/orgapi/)'s, [`tools/orgviewer`](./tools/orgviewer/)'s and
-[`tools/orgconfluence`](./tools/orgconfluence/)'s own test suites — separate targets from `check`
+[`tools/orgconfluence`](./tools/orgconfluence/)'s own `make check` — separate targets from `check`
 (same reasoning as `check-examples` below), also wired into CI and pre-commit.
 
 `org-model/common/org.tf` ships with a placeholder root team (`your-organization` / a

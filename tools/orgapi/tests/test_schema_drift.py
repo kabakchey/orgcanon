@@ -1,7 +1,7 @@
-"""Schema-drift test: round-trips real Terraform JSON through the bare (non-id) Pydantic
-record models. An unmodeled or renamed field in
-org-model/validated/variables.tf fails here as an unexpected or missing key -- no separate HCL
-parser involved, just Terraform's own evaluated output.
+"""Schema-drift test: round-trips real Terraform JSON through the bare (non-id) record models.
+
+An unmodeled or renamed field in org-model/validated/variables.tf fails here as an unexpected
+or missing key -- no separate HCL parser involved, just Terraform's own evaluated output.
 
 Runs against both the real `org-model/` data and orgapi's own test fixture -- real
 `org-model/` data alone isn't enough for full entity-type coverage today, since it currently
@@ -16,14 +16,14 @@ import pytest
 from orgapi.models import ENTITY_MODELS
 from orgapi.org_data import ORG_DATA_OUTPUT_KEYS, load_org_data
 
+from .conftest import TERRAFORM_BIN
+
 REPO_ROOT = Path(__file__).parents[3]
-TERRAFORM_BIN = "terraform"
-FIXTURE_DIR = Path(__file__).parent / "fixtures" / "orgdata"
 
 
 @pytest.fixture(scope="session")
 def real_org_data():
-    return load_org_data(str(REPO_ROOT / "org-model"), str(TERRAFORM_BIN))
+    return load_org_data(str(REPO_ROOT / "org-model"), TERRAFORM_BIN)
 
 
 @pytest.mark.parametrize("source", ["real_terraform", "orgapi_fixture"])

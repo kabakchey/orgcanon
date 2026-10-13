@@ -6,6 +6,8 @@ import { entitySegments } from "../src/entity/segments";
 import type { EntityConfig, EntityView } from "../src/entity/types";
 import { OrgApiError, type EntityRecord, type EntityType, type OrgApi } from "../src/orgapi/client";
 
+import { fakeOrgApi } from "./fixtures";
+
 const ORGVIEWER = "https://org.example.com/ui";
 const TODAY = "2026-06-15";
 
@@ -35,14 +37,11 @@ function line(id: string, person: string, extra: Record<string, unknown> = {}): 
 }
 
 function orgApi(overrides: Partial<OrgApi> = {}): OrgApi {
-  return {
-    listTeams: async () => [],
-    teamPeople: async () => null,
-    positionName: async () => null,
+  return fakeOrgApi({
     listEntities: async (type) => DATA[type] ?? [],
     getEntity: async (type, id) => (DATA[type] ?? []).find((record) => record.id === id) ?? null,
     ...overrides,
-  };
+  });
 }
 
 const offline = orgApi({

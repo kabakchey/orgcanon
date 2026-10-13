@@ -14,6 +14,7 @@ import { view } from "@forge/bridge";
 import type { Team } from "../orgapi/client";
 import { call } from "./call";
 import { parseConfig } from "../position/config";
+import { positionKey } from "../position/positions";
 import type { MacroConfig, Position, PositionKind, Show } from "../position/types";
 
 type Option<Value> = { label: string; value: Value };
@@ -29,8 +30,6 @@ const SHOW_OPTIONS: (Option<Show> & { name: string })[] = [
   { name: "show", value: "deputy", label: "Deputy" },
   { name: "show", value: "both", label: "Holder and deputy" },
 ];
-
-const positionKey = (position: { kind: PositionKind; id: string }) => `${position.kind}/${position.id}`;
 
 function Config() {
   const [saved, setSaved] = useState<MacroConfig | null | undefined>(undefined);

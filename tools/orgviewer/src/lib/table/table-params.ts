@@ -7,7 +7,7 @@ const SORT_PARAM = "sort";
 const FILTER_PREFIX = "f.";
 const DESCENDING_PREFIX = "-";
 
-export interface TableParams {
+interface TableParams {
   cols: string[] | undefined;
   sort: Sort | undefined;
   filters: Filters;

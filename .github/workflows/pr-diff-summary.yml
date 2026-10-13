@@ -1,7 +1,7 @@
 # Informational only -- never blocks a PR. GitLab equivalent: .gitlab-ci.yml's mr-diff-summary
 # job, calling the same diff-summary/post-review-comment Make targets with different
-# PLATFORM/REPO/PR_NUMBER values. Runs inside the root Dockerfile's `core` image, which carries
-# `gh` for exactly this.
+# PLATFORM/REPO/PR_NUMBER values. Runs inside the root Dockerfile's image, which carries `gh` for
+# exactly this.
 name: PR org-data diff summary
 
 on:
@@ -20,6 +20,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: build tooling image
+        run: make docker-image
 
       - name: Generate diff summary
         run: make diff-summary BASE_SHA="${{ github.event.pull_request.base.sha }}"

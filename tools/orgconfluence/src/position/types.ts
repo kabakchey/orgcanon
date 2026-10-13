@@ -1,7 +1,6 @@
-export type PositionKind = "head" | "role" | "authority_line";
+import type { PositionKind, PositionRef } from "../orgapi/client";
 
-/** `id` is a Role id or an AuthorityLine type id; empty for the head, which a team has one of. */
-export type PositionRef = { kind: PositionKind; id: string };
+export type { PositionKind, PositionRef };
 
 export type Position = PositionRef & { text: string };
 

@@ -1,6 +1,7 @@
 # Convenience targets for running orgapi locally. See README.md for DATA_DIR/TERRAFORM_BIN.
 #
-# Every target runs inside the root Dockerfile's `core` image by default (RUN_IN_DOCKER=1).
+# Every target runs inside the root Dockerfile's image by default (RUN_IN_DOCKER=1) -- build
+# it with the root `make docker-image`.
 # Set RUN_IN_DOCKER=0 to run natively (needs uv on PATH).
 
 SHELL := /bin/bash
@@ -30,37 +31,28 @@ export TF_DATA_DIR PYTHONPYCACHEPREFIX
 
 # dev-% isn't in .PHONY: doing so would register an empty explicit rule that shadows the
 # pattern rule below. It never matches a real file, so make runs it anyway.
-.PHONY: install dev test docker-image _install _dev _test
+.PHONY: install dev test check _install _dev _test _check
 
 RUN_IN_DOCKER ?= 1
 
-# Containers run as root -- pnpm's bin-linking step chmods files unconditionally, which only
-# root (baked in at image-build time) can do. Named volumes (not a bind-mounted .venv/DIST_DIR)
-# make that harmless: nothing lands on the host -- extract a file with `docker run --rm -v
-# orgcanon-orgapi-dist:/dist -v $$PWD:/out alpine cp -r /dist/. /out/`, or `docker cp` from a running
-# container. No image name in DOCKER_RUN itself -- each call site supplies it (and extra flags,
-# e.g. dev's -p), which must land before it in docker run's argument order.
-#
-# --init/TINI_KILL_PROCESS_GROUP: without them, the container's PID 1 is `make` itself, and
-# Docker's Ctrl+C handling signals only that one PID -- not the whole process tree the way a
-# local terminal's foreground process group would. Nothing in the make -> uv -> uvicorn ->
-# `--reload` worker chain relays it onward, so it's silently swallowed and `dev` never stops.
-# `--init` runs tini as PID 1, and this env var tells it to signal the whole process group
-# instead of just its direct child, reaching everything below `make` too.
+# No image name in DOCKER_RUN itself -- each call site supplies it (and extra flags, e.g. dev's
+# -p), which must land before it in docker run's argument order.
 DOCKER_RUN = docker run --rm --init -e TINI_KILL_PROCESS_GROUP=true -v $(ROOT):/app -w /app/tools/orgapi \
 	-v orgcanon-orgapi-venv:/app/tools/orgapi/.venv \
 	-v orgcanon-orgapi-dist:/dist -e DIST_DIR=/dist
 
 ifeq ($(RUN_IN_DOCKER),1)
 
-install: docker-image
-	$(DOCKER_RUN) orgcanon:core make _install
-dev: docker-image
-	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon:core make _dev DATA_DIR=$(DATA_DIR) TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
-dev-%: docker-image
-	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon:core make _dev DATA_DIR=$(EXAMPLES_DIR)/$* TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
-test: docker-image
-	$(DOCKER_RUN) orgcanon:core make _test
+install:
+	$(DOCKER_RUN) orgcanon make _install
+dev:
+	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon make _dev DATA_DIR=$(DATA_DIR) TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
+dev-%:
+	$(DOCKER_RUN) -p $(PORT):$(PORT) orgcanon make _dev DATA_DIR=$(EXAMPLES_DIR)/$* TERRAFORM_BIN=$(TERRAFORM_BIN) PORT=$(PORT)
+test:
+	$(DOCKER_RUN) orgcanon make _test
+check:
+	$(DOCKER_RUN) orgcanon make _check
 
 else
 
@@ -69,13 +61,9 @@ dev: _dev
 dev-%:
 	$(MAKE) _dev DATA_DIR=$(EXAMPLES_DIR)/$*
 test: _test
+check: _check
 
 endif
-
-# Owned by the root Makefile (the Dockerfile lives there) -- this just triggers it, so the
-# `docker build` command itself exists in exactly one place.
-docker-image:
-	$(MAKE) -C $(ROOT) docker-image-core
 
 _install:
 	uv sync
@@ -91,3 +79,5 @@ _dev: _install
 # tree under Docker.
 _test: _install
 	uv run pytest -o cache_dir=$(DIST_DIR)/pytest_cache
+
+_check: _test

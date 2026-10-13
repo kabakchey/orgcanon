@@ -14,7 +14,7 @@ export interface PersonRole {
     | "role-deputy";
 }
 
-export interface PersonCardRoles {
+interface PersonCardRoles {
   primary: PersonRole | null;
   secondary: PersonRole[];
 }

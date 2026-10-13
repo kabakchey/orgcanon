@@ -6,21 +6,12 @@ export function ViewPage() {
   const view = slug ? getViewBySlug(slug) : undefined;
 
   if (!view) {
-    return <main style={{ padding: 24 }}>Not found.</main>;
+    return <main className="page">Not found.</main>;
   }
 
   const View = view.component;
   return (
-    <main
-      style={{
-        padding: 24,
-        boxSizing: "border-box",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 0,
-      }}
-    >
+    <main className="page page-view">
       <View />
     </main>
   );

@@ -1,23 +1,26 @@
 import type { ReactElement } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { EntityFieldValue } from "../components/entity-field-value";
-import { useEntities, useEntityById } from "../lib/orgapi/use-entities";
+import { EntityLink } from "../components/entity-link";
+import { useEntities, useEntityById, useOrgData } from "../lib/orgapi/use-entities";
 import {
   reverseConnectionSourceKeysFor,
   reverseConnectionsFor,
   type EntityConnection,
-} from "../lib/orgapi/direct-connections";
+} from "../lib/orgapi/reverse-connections";
 import { isEntityKey, type OrgData } from "../lib/orgapi/types";
+import { entitiesTableHref } from "../lib/routes";
 
-type EntitySources = Partial<Record<keyof OrgData, Record<string, unknown>>>;
+type EntitySources = Partial<Record<keyof OrgData, Record<string, object>>>;
 
-function labelFor(entity: Record<string, unknown>, id: string): string {
-  if (typeof entity.name === "string") return entity.name;
-  if (typeof entity.title === "string") return entity.title;
+function labelFor(entity: object, id: string): string {
+  const { name, title } = entity as { name?: unknown; title?: unknown };
+  if (typeof name === "string") return name;
+  if (typeof title === "string") return title;
   return id;
 }
 
-function EntityFields({ entity, entityKey }: { entity: Record<string, unknown>; entityKey: keyof OrgData }) {
+function EntityFields({ entity, entityKey }: { entity: object; entityKey: keyof OrgData }) {
   return (
     <dl className="entity-fields">
       {Object.entries(entity).map(([field, value]) => (
@@ -47,15 +50,16 @@ function EntityConnections({
           <div className="entity-connection-chips">
             {connection.ids.map((connectionId) => {
               const target = sources[connection.targetKey]?.[connectionId];
-              const name = target ? labelFor(target as Record<string, unknown>, connectionId) : connectionId;
+              const name = target ? labelFor(target, connectionId) : connectionId;
               return (
-                <Link
+                <EntityLink
                   key={connectionId}
-                  to={`/entities/${connection.targetKey}?id=${encodeURIComponent(connectionId)}`}
+                  entityKey={connection.targetKey}
+                  id={connectionId}
                   className="entity-connection-chip"
                 >
                   {name}
-                </Link>
+                </EntityLink>
               );
             })}
           </div>
@@ -66,40 +70,19 @@ function EntityConnections({
 }
 
 function EntityById({ entityKey, id }: { entityKey: keyof OrgData; id: string }) {
-  const { data, notFound, error } = useEntityById(entityKey, id);
-
-  // Only the collections a *_types/self/etc. reverse-lookup for this entity type actually needs
-  // are fetched (see reverseConnectionSourceKeysFor) -- these five useEntities calls always run,
-  // in this fixed order, so the `enabled` flag (not a conditional hook) is what skips the unneeded
-  // ones.
-  const sourceKeys = reverseConnectionSourceKeysFor(entityKey);
-  const teamsSource = useEntities("teams", undefined, { enabled: sourceKeys.includes("teams") });
-  const peopleSource = useEntities("people", undefined, { enabled: sourceKeys.includes("people") });
-  const componentsSource = useEntities("components", undefined, { enabled: sourceKeys.includes("components") });
-  const authorityLinesSource = useEntities("authority_lines", undefined, {
-    enabled: sourceKeys.includes("authority_lines"),
-  });
-  const rolesSource = useEntities("roles", undefined, { enabled: sourceKeys.includes("roles") });
+  const { data: entity, notFound, error } = useEntityById(entityKey, id);
+  const sources = useOrgData(reverseConnectionSourceKeysFor(entityKey)).data;
 
   if (error) return <p>Failed to load entity.</p>;
   if (notFound) return <p>No {entityKey} entity with id {JSON.stringify(id)}.</p>;
-  if (!data) return <p>Loading…</p>;
+  if (!entity) return <p>Loading…</p>;
 
-  const entity = data as unknown as Record<string, unknown>;
-  const sources: EntitySources = {
-    teams: teamsSource.data as unknown as Record<string, unknown> | undefined,
-    people: peopleSource.data as unknown as Record<string, unknown> | undefined,
-    components: componentsSource.data as unknown as Record<string, unknown> | undefined,
-    authority_lines: authorityLinesSource.data as unknown as Record<string, unknown> | undefined,
-    roles: rolesSource.data as unknown as Record<string, unknown> | undefined,
-  };
-  const sourcesReady = sourceKeys.every((key) => sources[key] !== undefined);
-  const connections = sourcesReady ? reverseConnectionsFor(entityKey, id, sources) : undefined;
+  const connections = sources ? reverseConnectionsFor(entityKey, id, sources) : undefined;
 
   return (
     <div className="entity-detail">
       <div className="entity-header">
-        <Link to={`/views/entities?entity=${entityKey}`} className="entity-type-badge">
+        <Link to={entitiesTableHref(entityKey)} className="entity-type-badge">
           {entityKey}
         </Link>
         <h2 className="entity-name">{labelFor(entity, id)}</h2>
@@ -115,7 +98,7 @@ function EntityById({ entityKey, id }: { entityKey: keyof OrgData; id: string })
         ) : connections.length === 0 ? (
           <p className="muted">No other entities reference this one.</p>
         ) : (
-          <EntityConnections connections={connections} sources={sources} />
+          <EntityConnections connections={connections} sources={sources ?? {}} />
         )}
       </section>
     </div>
@@ -146,9 +129,9 @@ function EntityByFilters({
     <ul>
       {matches.map(([id, entity]) => (
         <li key={id}>
-          <Link to={`/entities/${entityKey}?id=${encodeURIComponent(id)}`}>
-            {labelFor(entity as Record<string, unknown>, id)}
-          </Link>
+          <EntityLink entityKey={entityKey} id={id}>
+            {labelFor(entity, id)}
+          </EntityLink>
         </li>
       ))}
     </ul>
@@ -160,7 +143,7 @@ export function EntityPage() {
   const [searchParams] = useSearchParams();
 
   if (!rawEntityKey || !isEntityKey(rawEntityKey)) {
-    return <main style={{ padding: 24 }}>Unknown entity type.</main>;
+    return <main className="page">Unknown entity type.</main>;
   }
   const entityKey = rawEntityKey;
 
@@ -183,7 +166,7 @@ export function EntityPage() {
   }
 
   return (
-    <main style={{ padding: 24 }}>
+    <main className="page">
       <h1>{entityKey}</h1>
       {body}
     </main>

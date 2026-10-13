@@ -1,7 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
-import { useSelectParam } from "../lib/use-select-param";
-import { useDefaultParam } from "../lib/use-default-param";
+import { useLocation } from "react-router-dom";
 import {
   allBranchKeys,
   ancestorKeys,
@@ -12,14 +10,12 @@ import {
   type TreeRow,
 } from "../lib/picker/tree";
 
-export interface TreePickerProps {
+interface TreePickerProps {
   // Singular noun for what's picked ("Team"); names the trigger, filter box and tree for a11y.
   label: string;
-  paramName: string;
   tree: TreeItem[];
-  // Written into the URL whenever paramName is absent from it (e.g. Org Tree's root team), which
-  // also means the picker never offers to clear it.
-  fallbackId?: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
 }
 
 // Manual expand/collapse per picker, kept for the page's lifetime only.
@@ -43,13 +39,10 @@ function highlight(label: string, query: string): ReactNode {
   );
 }
 
-export function TreePicker({ label, paramName, tree, fallbackId }: TreePickerProps) {
-  const [searchParams, setSearchParams] = useSearchParams();
+export function TreePicker({ label, tree, value: selectedId, onChange }: TreePickerProps) {
   const { pathname } = useLocation();
-  const select = useSelectParam(paramName);
-  const selectedId = searchParams.get(paramName) ?? fallbackId ?? undefined;
   const selectedItem = selectedId ? findItem(tree, selectedId) : undefined;
-  const memoryKey = `${pathname}:${paramName}`;
+  const memoryKey = `${pathname}:${label}`;
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -67,8 +60,6 @@ export function TreePicker({ label, paramName, tree, fallbackId }: TreePickerPro
     [filtered, filtering, expanded]
   );
   const activeIndex = rows.findIndex((row) => row.item.key === activeKey);
-
-  useDefaultParam(paramName, fallbackId);
 
   useEffect(() => {
     if (!open) return;
@@ -114,16 +105,7 @@ export function TreePicker({ label, paramName, tree, fallbackId }: TreePickerPro
       if (!filtering) toggle(row.item.key);
       return;
     }
-    select(row.item.value);
-    close(true);
-  }
-
-  function clear() {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete(paramName);
-      return next;
-    });
+    onChange(row.item.value);
     close(true);
   }
 
@@ -209,11 +191,6 @@ export function TreePicker({ label, paramName, tree, fallbackId }: TreePickerPro
             onChange={(event) => onQueryChange(event.target.value)}
             onKeyDown={onKeyDown}
           />
-          {!fallbackId && selectedItem && (
-            <button type="button" className="tree-picker-clear" onClick={clear}>
-              Clear
-            </button>
-          )}
           <div role="tree" id={treeId} aria-label={label} className="tree-picker-tree">
             {rows.map((row) => {
               const { item } = row;

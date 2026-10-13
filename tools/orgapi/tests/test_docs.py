@@ -1,6 +1,8 @@
-"""Pins the /docs + /spec wiring: Swagger UI at /docs must load its spec from /spec (not the
-FastAPI default /openapi.json), and /spec must be the live OpenAPI document FastAPI derives
-from the actual routes and Pydantic models -- not a hand-maintained file.
+"""Pins the /docs + /spec wiring.
+
+Swagger UI at /docs must load its spec from /spec (not the FastAPI default /openapi.json), and
+/spec must be the live OpenAPI document FastAPI derives from the actual routes and Pydantic
+models -- not a hand-maintained file.
 """
 
 
@@ -32,8 +34,6 @@ def test_spec_reflects_the_actual_routes_and_models(client):
 
 
 def test_spec_picks_up_a_newly_registered_route(client):
-    """Proves /spec is generated per-request from the live route table, not a static file:
-    a route added after app startup shows up without any spec file being touched."""
     from orgapi.app import app
 
     @app.get("/_test_only_probe_route")

@@ -1,5 +1,9 @@
-import type { Holding } from "../orgapi/client";
+import type { Holding, PositionRef } from "../orgapi/client";
 import type { Position } from "./types";
+
+export function positionKey(position: PositionRef): string {
+  return `${position.kind}/${position.id}`;
+}
 
 function positionOf(holding: Holding): Position | null {
   if (holding.kind === "head") {
@@ -20,8 +24,8 @@ export function positionsOf(holdings: Holding[]): Position[] {
   const positions = new Map<string, Position>();
   for (const holding of holdings) {
     const position = positionOf(holding);
-    if (position && !positions.has(`${position.kind}/${position.id}`)) {
-      positions.set(`${position.kind}/${position.id}`, position);
+    if (position && !positions.has(positionKey(position))) {
+      positions.set(positionKey(position), position);
     }
   }
   return [...positions.values()];

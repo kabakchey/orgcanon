@@ -52,17 +52,25 @@ class TestInsertBeforeClose(unittest.TestCase):
         self.assertEqual(result, "{ a = 1  b = 2}")
 
 
+JANE = {
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "primary_specialization": "Design",
+    "expiration_date": "2027-08-25",
+    "owner": "jane-doe",
+}
+JANE_AS_DESIGNER = {
+    "person": "jane-doe",
+    "role": "designer",
+    "title": "Designer",
+    "is_primary_team": True,
+}
+
+
 class TestAddPerson(unittest.TestCase):
     def test_adds_a_new_person_entry_to_the_people_map(self):
         text = "locals {\n  people = {\n    alice = {}\n  }\n}\n"
-        fields = {
-            "name": "Jane Doe",
-            "email": "jane@example.com",
-            "primary_specialization": "Design",
-            "expiration_date": "2027-08-25",
-            "owner": "jane-doe",
-        }
-        result = add_person(text, "jane-doe", fields)
+        result = add_person(text, "jane-doe", **JANE)
         self.assertIn('jane-doe = {', result)
         self.assertIn('name                      = "Jane Doe"', result)
         self.assertIn('email                     = "jane@example.com"', result)
@@ -70,14 +78,7 @@ class TestAddPerson(unittest.TestCase):
 
     def test_generated_entry_carries_a_documentation_url_field(self):
         text = "locals {\n  people = {\n    alice = {}\n  }\n}\n"
-        fields = {
-            "name": "Jane Doe",
-            "email": "jane@example.com",
-            "primary_specialization": "Design",
-            "expiration_date": "2027-08-25",
-            "owner": "jane-doe",
-        }
-        result = add_person(text, "jane-doe", fields)
+        result = add_person(text, "jane-doe", **JANE)
         self.assertIn('documentation_url         = ""', result)
 
 
@@ -97,14 +98,7 @@ class TestAddTeamMember(unittest.TestCase):
             "  }\n"
             "}\n"
         )
-        member = {
-            "person": "jane-doe",
-            "role": "designer",
-            "title": "Designer",
-            "is_primary_team": True,
-            "deputy": None,
-        }
-        result = add_team_member(text, "platform", member)
+        result = add_team_member(text, "platform", **JANE_AS_DESIGNER)
         self.assertIn('person            = "jane-doe"', result)
         self.assertIn("is_interim        = false", result)
         self.assertIn("is_deputy_interim = null", result)
@@ -123,14 +117,7 @@ class TestAddTeamMember(unittest.TestCase):
             "  }\n"
             "}\n"
         )
-        member = {
-            "person": "jane-doe",
-            "role": "designer",
-            "title": "Designer",
-            "is_primary_team": True,
-            "deputy": "bob",
-        }
-        result = add_team_member(text, "platform", member)
+        result = add_team_member(text, "platform", **JANE_AS_DESIGNER, deputy="bob")
         self.assertIn("is_deputy_interim = false", result)
 
 

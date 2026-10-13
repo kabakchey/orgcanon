@@ -4,7 +4,9 @@
 #
 # Every target here (and in each tools/*/Makefile) runs inside the
 # image built from the root Dockerfile by default (RUN_IN_DOCKER=1) -- Docker plus `make` are
-# the only local prerequisites. RUN_IN_DOCKER=0 runs natively instead, expecting the real
+# the only local prerequisites. Only `make docker-image` (or its alias `install`) builds that image: run it first, and
+# again whenever the Dockerfile, a dependency manifest, or the orgviewer bundle baked into it
+# should be refreshed. RUN_IN_DOCKER=0 runs natively instead, expecting the real
 # prerequisites already on PATH (terraform, python3, plus uv/Node+pnpm if you touch
 # anything under tools/ natively).
 #
@@ -47,73 +49,59 @@ PYTHONPYCACHEPREFIX := $(DIST_DIR)/pycache
 export TF_DATA_DIR PYTHONPYCACHEPREFIX
 
 .PHONY: install fmt init validate plan apply check-team-hierarchy check-retirement-confirmations \
-	check-reviewable-expiration check check-examples clean \
+	check-reviewable-expiration check-scripts check check-examples clean \
 	check-friendly report-data-quality diff-summary post-review-comment \
 	check-orgapi check-orgviewer check-orgconfluence \
-	docker-image-core docker-image-node \
+	docker-image \
 	_fmt _init _validate _plan _apply _check-team-hierarchy _check-retirement-confirmations \
-	_check-reviewable-expiration _check _check-examples _diff-plans \
+	_check-reviewable-expiration _check-scripts _check _check-examples _diff-plans \
 	_check-friendly _report-data-quality _diff-summary _post-review-comment
 
 RUN_IN_DOCKER ?= 1
 
-# Containers run as root -- pnpm's bin-linking step chmods files unconditionally, which only
-# root (baked in at image-build time) can do. Using a named volume instead of a bind-mounted
-# DIST_DIR makes that harmless: nothing lands on the host, so there's no ownership to fix up --
-# extract a file with `docker run --rm -v orgcanon-terraform-dist:/dist -v $$PWD:/out alpine cp -r
-# /dist/. /out/`, or `docker cp` from a running container. GH_TOKEN/GITLAB_MR_TOKEN/CI_API_V4_URL/
-# CI_PROJECT_ID/CI_MERGE_REQUEST_IID are passed bare so Docker forwards whatever's in the calling
-# shell's environment -- harmless when absent locally, since only post-review-comment reads them.
-#
-# --init/TINI_KILL_PROCESS_GROUP: without them, the container's PID 1 is `make` itself, and
-# Docker's Ctrl+C handling signals only that one PID -- not the whole process tree the way a
-# local terminal's foreground process group would. Nothing in the make -> shell -> tool chain
-# relays it onward, so it's silently swallowed and `docker run --rm` never returns. `--init`
-# runs tini as PID 1, and this env var tells it to signal the whole process group instead of
-# just its direct child, reaching everything below `make` too.
+# GH_TOKEN/GITLAB_MR_TOKEN/CI_API_V4_URL/CI_PROJECT_ID/CI_MERGE_REQUEST_IID are passed bare so
+# Docker forwards whatever's in the calling shell's environment -- harmless when absent locally,
+# since only post-review-comment reads them.
 DOCKER_RUN = docker run --rm --init -e TINI_KILL_PROCESS_GROUP=true -v $(CURDIR):/app -w /app \
 	-v orgcanon-terraform-dist:/dist -e DIST_DIR=/dist \
 	-e GH_TOKEN -e GITLAB_MR_TOKEN -e CI_API_V4_URL -e CI_PROJECT_ID -e CI_MERGE_REQUEST_IID
 
-# Always runs `docker build`, relying on Docker's layer cache rather than tracking changes
-# ourselves -- a no-op rebuild is under a second, and an image removed via `docker rmi`/prune
-# always gets rebuilt rather than skipped by a stale local marker.
-docker-image-core:
-	docker build -t orgcanon:core .
-docker-image-node:
-	docker build --build-arg TOOLCHAINS="terraform node" -t orgcanon:node .
+docker-image:
+	docker build -t orgcanon .
 
 ifeq ($(RUN_IN_DOCKER),1)
 
-install: docker-image-core
-fmt: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _fmt
-init: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _init
-validate: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _validate
-plan: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _plan
-apply: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _apply
-check-team-hierarchy: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _check-team-hierarchy
-check-retirement-confirmations: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _check-retirement-confirmations BASE_SHA=$(BASE_SHA)
-check-reviewable-expiration: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _check-reviewable-expiration
-check: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _check BASE_SHA=$(BASE_SHA)
-check-examples: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _check-examples
-check-friendly: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _check-friendly
-report-data-quality: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _report-data-quality
-diff-summary: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _diff-summary BASE_SHA=$(BASE_SHA)
-post-review-comment: docker-image-core
-	$(DOCKER_RUN) orgcanon:core make _post-review-comment PLATFORM=$(PLATFORM) REPO=$(REPO) PR_NUMBER=$(PR_NUMBER)
+install: docker-image
+fmt:
+	$(DOCKER_RUN) orgcanon make _fmt
+init:
+	$(DOCKER_RUN) orgcanon make _init
+validate:
+	$(DOCKER_RUN) orgcanon make _validate
+plan:
+	$(DOCKER_RUN) orgcanon make _plan
+apply:
+	$(DOCKER_RUN) orgcanon make _apply
+check-team-hierarchy:
+	$(DOCKER_RUN) orgcanon make _check-team-hierarchy
+check-retirement-confirmations:
+	$(DOCKER_RUN) orgcanon make _check-retirement-confirmations BASE_SHA=$(BASE_SHA)
+check-reviewable-expiration:
+	$(DOCKER_RUN) orgcanon make _check-reviewable-expiration
+check-scripts:
+	$(DOCKER_RUN) orgcanon make _check-scripts
+check:
+	$(DOCKER_RUN) orgcanon make _check BASE_SHA=$(BASE_SHA)
+check-examples:
+	$(DOCKER_RUN) orgcanon make _check-examples
+check-friendly:
+	$(DOCKER_RUN) orgcanon make _check-friendly
+report-data-quality:
+	$(DOCKER_RUN) orgcanon make _report-data-quality
+diff-summary:
+	$(DOCKER_RUN) orgcanon make _diff-summary BASE_SHA=$(BASE_SHA)
+post-review-comment:
+	$(DOCKER_RUN) orgcanon make _post-review-comment PLATFORM=$(PLATFORM) REPO=$(REPO) PR_NUMBER=$(PR_NUMBER)
 
 else
 
@@ -126,6 +114,7 @@ apply: _apply
 check-team-hierarchy: _check-team-hierarchy
 check-retirement-confirmations: _check-retirement-confirmations
 check-reviewable-expiration: _check-reviewable-expiration
+check-scripts: _check-scripts
 check: _check
 check-examples: _check-examples
 check-friendly: _check-friendly
@@ -204,7 +193,10 @@ _check-retirement-confirmations: _diff-plans
 _check-reviewable-expiration: _plan
 	$(TERRAFORM) -chdir=$(TERRAFORM_DIR) show -json $(PLAN_FILE) | python3 scripts/check_reviewable_expiration.py
 
-_check: _fmt _validate _apply _check-team-hierarchy _check-retirement-confirmations _check-reviewable-expiration
+_check-scripts:
+	python3 -m unittest discover -s scripts/tests
+
+_check: _fmt _validate _apply _check-team-hierarchy _check-retirement-confirmations _check-reviewable-expiration _check-scripts
 	@echo "All checks passed."
 
 _check-friendly:
@@ -241,26 +233,19 @@ EXAMPLES := $(patsubst %/main.tf,%,$(wildcard examples/*/main.tf))
 _check-examples:
 	@for dir in $(EXAMPLES); do \
 		echo "== $$dir =="; \
-		$(TERRAFORM) -chdir=$$dir fmt -check -recursive -diff && \
-		$(TERRAFORM) -chdir=$$dir init -backend=false -input=false && \
-		$(TERRAFORM) -chdir=$$dir validate && \
-		mkdir -p $(PLAN_DIR) && \
-		rm -f $(PLAN_DIR)/$$(basename $$dir).tfstate $(PLAN_DIR)/$$(basename $$dir).tfstate.backup && \
-		$(TERRAFORM) -chdir=$$dir plan -input=false -state=$(PLAN_DIR)/$$(basename $$dir).tfstate -out=$(PLAN_DIR)/$$(basename $$dir).tfplan && \
-		$(TERRAFORM) -chdir=$$dir apply -input=false -auto-approve -state=$(PLAN_DIR)/$$(basename $$dir).tfstate $(PLAN_DIR)/$$(basename $$dir).tfplan && \
-		$(TERRAFORM) -chdir=$$dir show -json $(PLAN_DIR)/$$(basename $$dir).tfplan | python3 scripts/check_team_hierarchy.py; \
+		$(MAKE) _fmt _validate _apply _check-team-hierarchy TERRAFORM_DIR=$$dir || exit 1; \
 	done
 
-# Each tool owns its own RUN_IN_DOCKER wrapping; these just delegate to `test`, same per-tool
+# Each tool owns its own RUN_IN_DOCKER wrapping; these just delegate to `check`, same per-tool
 # target/job/hook pattern as check-examples above, so deleting a tool drops just its own entry.
 check-orgapi:
-	$(MAKE) -C tools/orgapi test
+	$(MAKE) -C tools/orgapi check
 
 check-orgviewer:
-	$(MAKE) -C tools/orgviewer test
+	$(MAKE) -C tools/orgviewer check
 
 check-orgconfluence:
-	$(MAKE) -C tools/orgconfluence test
+	$(MAKE) -C tools/orgconfluence check
 
 # Cleans native DIST_DIR plus the Docker-side named volume -- the latter is otherwise never
 # touched, so it only grows across runs.

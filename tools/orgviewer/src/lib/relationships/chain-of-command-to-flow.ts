@@ -1,29 +1,30 @@
 import type { Edge, Node } from "@xyflow/react";
-import { lineManagementStyle } from "../../components/edge-styles";
+import { lineManagementStyle } from "./edge-styles";
 import { deriveLineManagerLink, getChainOfCommand, getDirectReports } from "./line-management";
+import { flowEdge, personNode } from "./flow-elements";
 import { headDeputyEdges } from "./head-deputy-edges";
 import { derivePersonCardRoles, type PersonRole } from "./person-roles";
 import type { Person, Team } from "../orgapi/types";
+
+function lineManagerEdge(kind: "chain" | "reports", manager: string, report: string, teams: Record<string, Team>): Edge {
+  return flowEdge(
+    `${kind}:${manager}->${report}`,
+    `person:${manager}`,
+    `person:${report}`,
+    lineManagementStyle(deriveLineManagerLink(report, teams)?.hierarchical ?? true)
+  );
+}
 
 function roleWithUnit(role: PersonRole, teams: Record<string, Team>): string {
   return `${role.title} · ${teams[role.teamId]?.name ?? role.teamId}`;
 }
 
-function personNode(personId: string, teams: Record<string, Team>, people: Record<string, Person>): Node {
-  const person = people[personId];
+function personCard(personId: string, teams: Record<string, Team>, people: Record<string, Person>) {
   const { primary, secondary } = derivePersonCardRoles(personId, teams);
-  return {
-    id: `person:${personId}`,
-    type: "person",
-    data: {
-      label: person?.name ?? personId,
-      primaryTitle: primary ? roleWithUnit(primary, teams) : null,
-      secondaryTitles: secondary.map((role) => roleWithUnit(role, teams)),
-      documentationUrl: person?.documentation_url,
-      direction: "DOWN",
-    },
-    position: { x: 0, y: 0 },
-  };
+  return personNode(personId, people[personId], {
+    primaryTitle: primary ? roleWithUnit(primary, teams) : null,
+    secondaryTitles: secondary.map((role) => roleWithUnit(role, teams)),
+  });
 }
 
 // The chain of command for one person: every manager above them up to the root (via "chain:"
@@ -47,12 +48,7 @@ export function chainOfCommandToFlow(
   for (let i = 0; i < upwardIds.length - 1; i++) {
     const report = upwardIds[i]!;
     const manager = upwardIds[i + 1]!;
-    edges.push({
-      id: `chain:${manager}->${report}`,
-      source: `person:${manager}`,
-      target: `person:${report}`,
-      style: lineManagementStyle(deriveLineManagerLink(report, teams)?.hierarchical ?? true),
-    });
+    edges.push(lineManagerEdge("chain", manager, report, teams));
   }
 
   const downwardIds: string[] = [];
@@ -64,12 +60,7 @@ export function chainOfCommandToFlow(
       seen.add(reportId);
       downwardIds.push(reportId);
       queue.push(reportId);
-      edges.push({
-        id: `reports:${manager}->${reportId}`,
-        source: `person:${manager}`,
-        target: `person:${reportId}`,
-        style: lineManagementStyle(deriveLineManagerLink(reportId, teams)?.hierarchical ?? true),
-      });
+      edges.push(lineManagerEdge("reports", manager, reportId, teams));
     }
   }
 
@@ -77,7 +68,7 @@ export function chainOfCommandToFlow(
   edges.push(...deputyEdges);
   const extraDeputyIds = [...new Set(deputyIds)].filter((id) => !seen.has(id));
 
-  const nodes = [...upwardIds, ...downwardIds, ...extraDeputyIds].map((id) => personNode(id, teams, people));
+  const nodes = [...upwardIds, ...downwardIds, ...extraDeputyIds].map((id) => personCard(id, teams, people));
 
   return { nodes, edges };
 }

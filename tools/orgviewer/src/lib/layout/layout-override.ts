@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { RoutePoint } from "../../components/layout";
+import type { RoutePoint } from "./elk-layout";
+import { readStoredJson, writeStored, writeStoredJson } from "../storage";
 
 // A user's manual rearrangement of one graph instance (same storage-key scoping as fold state --
 // see use-fold-state.ts): every node's position, plus a route for any edge that's either been
@@ -41,23 +42,16 @@ function sanitize(layout: Partial<StoredLayout>): StoredLayout {
 }
 
 export function readLayoutOverride(key: string): StoredLayout | null {
-  try {
-    const raw = localStorage.getItem(storageKeyFor(key));
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return null;
-    return sanitize(parsed as Partial<StoredLayout>);
-  } catch {
-    return null;
-  }
+  const stored = readStoredJson(storageKeyFor(key));
+  return typeof stored === "object" && stored !== null ? sanitize(stored as Partial<StoredLayout>) : null;
 }
 
 export function writeLayoutOverride(key: string, layout: StoredLayout): void {
-  localStorage.setItem(storageKeyFor(key), JSON.stringify(sanitize(layout)));
+  writeStoredJson(storageKeyFor(key), sanitize(layout));
 }
 
 export function clearLayoutOverride(key: string): void {
-  localStorage.removeItem(storageKeyFor(key));
+  writeStored(storageKeyFor(key), null);
 }
 
 // The baseline snapshotted the moment a graph is first touched by hand (see use-layout-override's

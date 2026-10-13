@@ -4,7 +4,7 @@ import { viewHref } from "../lib/view-query-memory";
 
 export function HomePage() {
   return (
-    <main style={{ padding: 24 }}>
+    <main className="page">
       <h1>Org Viewer</h1>
       <ul>
         {views.map((view) => (

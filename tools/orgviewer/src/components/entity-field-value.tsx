@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { EntityLink } from "./entity-link";
 import type { OrgData, Position, Reviewable, TeamMember } from "../lib/orgapi/types";
 import { relationalTargetFor } from "../lib/orgapi/relational-fields";
 
@@ -29,7 +29,7 @@ function isRecordOfStrings(value: unknown): value is Record<string, string> {
   );
 }
 
-export function ReviewableBlock({ reviewable }: { reviewable: Reviewable }): ReactElement {
+function ReviewableBlock({ reviewable }: { reviewable: Reviewable }): ReactElement {
   return (
     <dl className="reviewable-block">
       <div>
@@ -50,7 +50,7 @@ export function ReviewableBlock({ reviewable }: { reviewable: Reviewable }): Rea
   );
 }
 
-export function PositionsList({ positions }: { positions: Position[] }): ReactElement {
+function PositionsList({ positions }: { positions: Position[] }): ReactElement {
   if (positions.length === 0) return <p className="muted">None.</p>;
   return (
     <ul className="positions-list">
@@ -64,7 +64,7 @@ export function PositionsList({ positions }: { positions: Position[] }): ReactEl
   );
 }
 
-export function RecordList({ record }: { record: Record<string, string> }): ReactElement {
+function RecordList({ record }: { record: Record<string, string> }): ReactElement {
   const entries = Object.entries(record);
   if (entries.length === 0) return <p className="muted">None.</p>;
   return (
@@ -78,18 +78,14 @@ export function RecordList({ record }: { record: Record<string, string> }): Reac
   );
 }
 
-function RelationalLink({ targetKey, id }: { targetKey: keyof OrgData; id: string }): ReactElement {
-  return <Link to={`/entities/${targetKey}?id=${encodeURIComponent(id)}`}>{id}</Link>;
-}
-
 function MembersList({ members }: { members: TeamMember[] }): ReactElement {
   if (members.length === 0) return <p className="muted">None.</p>;
   return (
     <ul className="members-list">
       {members.map((member, index) => (
         <li key={index}>
-          <RelationalLink targetKey="people" id={member.person} /> — {member.title} (
-          <RelationalLink targetKey="roles" id={member.role} />){member.is_primary_team ? " · primary" : ""}
+          <EntityLink entityKey="people" id={member.person} /> — {member.title} (
+          <EntityLink entityKey="roles" id={member.role} />){member.is_primary_team ? " · primary" : ""}
         </li>
       ))}
     </ul>
@@ -120,7 +116,7 @@ export function EntityFieldValue({
   const relationalTarget = relationalTargetFor(entityKey, field);
   if (relationalTarget) {
     if (typeof value === "string" && value) {
-      return <RelationalLink targetKey={relationalTarget} id={value} />;
+      return <EntityLink entityKey={relationalTarget} id={value} />;
     }
     if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
       if (value.length === 0) return <p className="muted">None.</p>;
@@ -128,7 +124,7 @@ export function EntityFieldValue({
         <ul className="record-list">
           {value.map((id) => (
             <li key={id}>
-              <RelationalLink targetKey={relationalTarget} id={id} />
+              <EntityLink entityKey={relationalTarget} id={id} />
             </li>
           ))}
         </ul>

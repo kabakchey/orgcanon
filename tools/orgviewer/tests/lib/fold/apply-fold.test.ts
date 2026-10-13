@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
-import { applyFold, foldableSourceIds, isFoldableEdgeId } from "../../../src/lib/relationships/apply-fold";
+import { applyFold, foldableSourceIds, isFoldableEdgeId } from "../../../src/lib/fold/apply-fold";
 
 function node(id: string): Node {
   return { id, position: { x: 0, y: 0 }, data: {} };

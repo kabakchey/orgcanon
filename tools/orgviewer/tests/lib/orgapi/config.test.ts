@@ -6,8 +6,8 @@ describe("getOrgapiBaseUrl", () => {
     localStorage.clear();
   });
 
-  it("defaults to the current origin plus /api when nothing is stored", () => {
-    expect(getOrgapiBaseUrl()).toBe(`${window.location.origin}/api`);
+  it("defaults to the current origin when nothing is stored", () => {
+    expect(getOrgapiBaseUrl()).toBe(window.location.origin);
   });
 
   it("returns a previously saved value instead of the default", () => {

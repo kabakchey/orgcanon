@@ -1,8 +1,9 @@
-"""Real DFS cycle detection on teams[*].parent_team, mirroring scripts/check_team_hierarchy.py's
-algorithm exactly. This can't be a Terraform `validation` block because HCL's `for` expressions
-can't do unbounded recursion. Deliberately duplicated rather than
-imported from scripts/ -- no shared import path exists between this uv-managed package and
-that unpackaged, stdlib-only directory.
+"""Cycle detection on teams[*].parent_team, by depth-first search.
+
+This can't be a Terraform `validation` block because HCL's `for` expressions can't do unbounded
+recursion. Mirrors scripts/check_team_hierarchy.py's algorithm exactly, duplicated rather than
+imported -- no shared import path exists between this uv-managed package and that unpackaged,
+stdlib-only directory.
 """
 
 from __future__ import annotations

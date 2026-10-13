@@ -1,23 +1,8 @@
 import type { Edge, Node } from "@xyflow/react";
-import { EDGE_STYLE } from "../../components/edge-styles";
+import { EDGE_STYLE } from "./edge-styles";
 import { teamEdgeStyle } from "./team-edge-style";
-import { componentNode } from "./component-dependencies-to-flow";
+import { componentNode, flowEdge, teamNode } from "./flow-elements";
 import type { Component, Team } from "../orgapi/types";
-
-function teamNode(teamId: string, team: Team | undefined): Node {
-  return {
-    id: `team:${teamId}`,
-    type: "team",
-    data: {
-      label: team?.name ?? teamId,
-      type: team?.type ?? "",
-      description: team?.description ?? "",
-      documentationUrl: team?.documentation_url,
-      direction: "DOWN",
-    },
-    position: { x: 0, y: 0 },
-  };
-}
 
 function directChildTeamIds(teamId: string, teams: Record<string, Team>): string[] {
   return Object.entries(teams)
@@ -57,12 +42,14 @@ export function teamComponentsToFlow(
     for (const childId of descendantTeamIds(teamId, teams)) {
       nodes.push(teamNode(childId, teams[childId]));
       const parentId = teams[childId]!.parent_team!;
-      edges.push({
-        id: `hierarchy:${parentId}->${childId}`,
-        source: `team:${parentId}`,
-        target: `team:${childId}`,
-        style: teamEdgeStyle(teams[parentId], teams[childId]),
-      });
+      edges.push(
+        flowEdge(
+          `hierarchy:${parentId}->${childId}`,
+          `team:${parentId}`,
+          `team:${childId}`,
+          teamEdgeStyle(teams[parentId], teams[childId])
+        )
+      );
       ownerTeamIds.push(childId);
     }
   }
@@ -70,13 +57,15 @@ export function teamComponentsToFlow(
   const ownerTeamIdSet = new Set(ownerTeamIds);
   for (const [componentId, component] of Object.entries(components)) {
     if (!ownerTeamIdSet.has(component.team)) continue;
-    nodes.push(componentNode(componentId, components, teams, "DOWN"));
-    edges.push({
-      id: `ownership:${component.team}->${componentId}`,
-      source: `team:${component.team}`,
-      target: `component:${componentId}`,
-      style: EDGE_STYLE.ownership,
-    });
+    nodes.push(componentNode(componentId, components, teams));
+    edges.push(
+      flowEdge(
+        `ownership:${component.team}->${componentId}`,
+        `team:${component.team}`,
+        `component:${componentId}`,
+        EDGE_STYLE.ownership
+      )
+    );
   }
 
   return { nodes, edges };

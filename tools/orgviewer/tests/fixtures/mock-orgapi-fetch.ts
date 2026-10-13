@@ -5,7 +5,7 @@ const orgDataByEntity = orgData as Record<string, Record<string, unknown>>;
 
 /**
  * Routes by matching which path segment names a known entity key, not by segment position,
- * since baseUrl may itself carry a prefix (e.g. the default ".../api").
+ * since baseUrl may itself carry a path prefix.
  */
 export function installMockOrgapiFetch(): ReturnType<typeof vi.fn> {
   const mock = vi.fn(async (input: string) => {

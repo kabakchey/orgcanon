@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   applyNodeChanges,
@@ -16,13 +14,12 @@ import {
   type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { layoutElements, type LayoutDirection, type RoutePoint } from "./layout";
-import { nodeTypes } from "./node-types";
+import type { LayoutDirection, RoutePoint } from "../lib/layout/elk-layout";
+import { useElkLayout } from "../lib/layout/use-elk-layout";
+import { LayoutDirectionContext, nodeTypes } from "./node-types";
 import { GraphLegend } from "./graph-legend";
 import { edgeTypes, type OnEdgeRouteChange } from "./edge-types";
-import { applyFold, foldableSourceIds } from "../lib/relationships/apply-fold";
-import { useFoldState } from "../lib/fold/use-fold-state";
-import { computeAutoFoldedIds } from "../lib/fold/auto-fold";
+import { useGraphFold } from "../lib/fold/use-graph-fold";
 import { applyLayoutOverride, snapshotLayout } from "../lib/layout/layout-override";
 import { useLayoutOverride } from "../lib/layout/use-layout-override";
 import { anchoredViewport } from "../lib/layout/anchor-viewport";
@@ -30,17 +27,13 @@ import { useCameraParam } from "../lib/use-camera-param";
 import { graphToMermaid } from "../lib/export/graph-to-mermaid";
 import { downloadTextFile } from "../lib/export/download-text-file";
 
-export interface GraphCanvasProps {
+interface GraphCanvasProps {
   nodes: Node[];
   edges: Edge[];
   direction?: LayoutDirection;
-  // When given, GraphCanvas owns fold/collapse for this graph, persisted under this key -- fold
-  // is a canvas-rendering concern, so it lives here rather than in each view.
-  // The same key also scopes any manual node/edge rearrangement -- both are "how this one graph
-  // instance currently looks," so they share one storage namespace per instance rather than each
-  // view threading two separate keys through.
-  foldStorageKey?: string;
-  // Node ids that should start folded the first time foldStorageKey is seen (no stored state
+  // Names this graph instance: its fold state and manual node/edge arrangement persist under it.
+  graphKey: string;
+  // Node ids that should start folded the first time graphKey is seen (no stored state
   // yet) -- e.g. a person with subordinates in Chain of Command, so a large downward tree
   // doesn't dump onto the screen before the user asks for it.
   defaultFoldedNodeIds?: Set<string>;
@@ -86,29 +79,18 @@ export function GraphCanvas({
   nodes,
   edges,
   direction = "DOWN",
-  foldStorageKey,
+  graphKey,
   defaultFoldedNodeIds,
   selectedNodeId,
   emptyMessage = "Select an entity above to see its graph.",
 }: GraphCanvasProps) {
-  const graphKey = foldStorageKey ?? "graph";
-  // Recomputed fresh from the current graph every render, same as defaultFoldedNodeIds itself --
-  // useFoldState only reads this on a fold key's first-ever mount (see its own doc), so this never
-  // fights with a user's own later toggles.
-  const autoDefaultFoldedNodeIds = useMemo(
-    () => (foldStorageKey ? computeAutoFoldedIds(nodes, edges, defaultFoldedNodeIds ?? new Set()) : undefined),
-    [foldStorageKey, nodes, edges, defaultFoldedNodeIds]
+  const { visible: folded, foldedIds, foldableIds, toggleFold, setFolded } = useGraphFold(
+    graphKey,
+    nodes,
+    edges,
+    defaultFoldedNodeIds
   );
-  // Lets useFoldState tell a stale stored fold set (leftover from a different graph that once
-  // shared this same storage key) apart from a real user preference for THIS graph -- see its own
-  // doc for why that distinction matters.
-  const currentNodeIds = useMemo(() => (foldStorageKey ? new Set(nodes.map((n) => n.id)) : undefined), [foldStorageKey, nodes]);
-  const { foldedIds, toggleFold, setFolded } = useFoldState(foldStorageKey ?? "disabled", autoDefaultFoldedNodeIds, currentNodeIds);
   const { override, save, reset } = useLayoutOverride(graphKey);
-
-  const [elkResult, setElkResult] = useState<{ nodes: Node[]; edges: Edge[] } | null>(null);
-  const [layoutError, setLayoutError] = useState<unknown>(null);
-  const [fitTrigger, setFitTrigger] = useState(0);
 
   // The nodes/edges actually handed to <ReactFlow>. Local state (not derived inline) because
   // dragging has to update them immediately, every pointer move, without waiting on ELK or a
@@ -129,18 +111,6 @@ export function GraphCanvas({
   const pendingViewportRef = useRef<Viewport | null>(null);
   const [camera, setCamera] = useCameraParam();
 
-  const folded = useMemo(
-    () =>
-      foldStorageKey
-        ? applyFold(nodes, edges, foldedIds)
-        : { nodes, edges, hiddenCounts: new Map<string, number>(), directHiddenCounts: new Map<string, number>() },
-    [nodes, edges, foldedIds, foldStorageKey]
-  );
-  const foldableIds = useMemo(
-    () => (foldStorageKey ? foldableSourceIds(edges) : new Set<string>()),
-    [edges, foldStorageKey]
-  );
-
   // Memoized so a node whose selection/fold state hasn't actually changed keeps the exact same
   // object reference across renders -- @xyflow/react caches each node's measured DOM dimensions
   // keyed by object identity (see its adoptUserNodes), so handing it a "new" object with identical
@@ -150,53 +120,35 @@ export function GraphCanvas({
     () =>
       folded.nodes.map((node) => {
         const selected = selectedNodeId !== undefined && node.id === selectedNodeId;
-        const foldProps =
-          foldStorageKey && foldableIds.has(node.id)
-            ? {
-                foldable: true,
-                folded: foldedIds.has(node.id),
-                hiddenCount: folded.hiddenCounts.get(node.id) ?? 0,
-                directHiddenCount: folded.directHiddenCounts.get(node.id) ?? 0,
-                onToggleFold: () => {
-                  touchedNodeIdRef.current = node.id;
-                  toggleFold(node.id);
-                },
-              }
-            : undefined;
+        const foldProps = foldableIds.has(node.id)
+          ? {
+              foldable: true,
+              folded: foldedIds.has(node.id),
+              hiddenCount: folded.hiddenCounts.get(node.id) ?? 0,
+              directHiddenCount: folded.directHiddenCounts.get(node.id) ?? 0,
+              onToggleFold: () => {
+                touchedNodeIdRef.current = node.id;
+                toggleFold(node.id);
+              },
+            }
+          : undefined;
         if (!selected && !foldProps) return node;
         return {
           ...node,
           data: { ...node.data, selected, ...foldProps },
         };
       }),
-    [folded, foldableIds, foldStorageKey, foldedIds, selectedNodeId, toggleFold]
+    [folded, foldableIds, foldedIds, selectedNodeId, toggleFold]
   );
 
   // Always computed, override or not: an override only ever wins per-node/per-edge, so ELK's own
   // result is still needed as the fallback position for anything the override doesn't know about
   // yet (e.g. a component added after the graph was last arranged by hand).
-  useEffect(() => {
-    let cancelled = false;
-    setLayoutError(null);
-    layoutElements(renderNodes, folded.edges, direction).then(
-      (result) => {
-        if (cancelled) return;
-        setElkResult(result);
-        setFitTrigger((v) => v + 1);
-      },
-      (error) => {
-        console.error("GraphCanvas: layoutElements failed", error);
-        if (!cancelled) setLayoutError(error);
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-    // renderNodes/folded.edges are recomputed fresh every render from nodes/edges/foldedIds;
-    // keying on those primitives (not the derived arrays, which are new references every
-    // render) avoids re-laying-out when nothing actually changed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, direction, foldedIds, foldStorageKey]);
+  const {
+    result: elkResult,
+    error: layoutError,
+    generation: layoutGeneration,
+  } = useElkLayout(renderNodes, folded.edges, direction, [nodes, edges, direction, foldedIds]);
 
   const handleEdgeRouteChangeRef = useRef<(edgeId: string, points: RoutePoint[], commit: boolean) => void>(
     () => {}
@@ -284,28 +236,13 @@ export function GraphCanvas({
 
   if (layoutError) {
     return (
-      <div style={{ width: "100%", flex: 1, minHeight: 0, padding: 16 }}>
-        Failed to lay out graph -- see console for details.
-      </div>
+      <div className="graph-canvas graph-canvas-message">Failed to lay out graph -- see console for details.</div>
     );
   }
 
   if (nodes.length === 0) {
     return (
-      <div
-        style={{
-          width: "100%",
-          flex: 1,
-          minHeight: 0,
-          padding: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--text-secondary)",
-        }}
-      >
-        {emptyMessage}
-      </div>
+      <div className="graph-canvas graph-canvas-message graph-canvas-empty">{emptyMessage}</div>
     );
   }
 
@@ -323,7 +260,8 @@ export function GraphCanvas({
   }
 
   return (
-    <div style={{ width: "100%", flex: 1, minHeight: 0 }}>
+    <LayoutDirectionContext.Provider value={direction}>
+    <div className="graph-canvas">
       <ReactFlow
         nodes={displayNodes}
         edges={displayEdges}
@@ -344,7 +282,7 @@ export function GraphCanvas({
         // silently stop short of showing the whole thing once they hit it.
         minZoom={0.05}
       >
-        <PlaceCameraOnFirstLayout trigger={fitTrigger} camera={camera} onFitted={setCamera} />
+        <PlaceCameraOnFirstLayout trigger={layoutGeneration} camera={camera} onFitted={setCamera} />
         <Background />
         <Panel position="bottom-right" className="graph-legend-panel">
           <GraphLegend edges={displayEdges} />
@@ -376,5 +314,6 @@ export function GraphCanvas({
         </Controls>
       </ReactFlow>
     </div>
+    </LayoutDirectionContext.Provider>
   );
 }

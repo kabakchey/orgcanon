@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { EDGE_STYLE } from "../../src/components/edge-styles";
+import { EDGE_STYLE } from "../../../src/lib/relationships/edge-styles";
 
-const css = readFileSync(new URL("../../src/index.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../../../src/index.css", import.meta.url), "utf8");
 
 function themeBlock(theme: "light" | "dark"): string {
   const start = css.indexOf(`:root[data-theme="${theme}"]`);

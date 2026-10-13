@@ -2,7 +2,7 @@ import { relationalTargetFor } from "../orgapi/relational-fields";
 import type { OrgData } from "../orgapi/types";
 
 export type CellValue = string | boolean | string[] | null;
-export type ColumnKind = "text" | "boolean" | "list" | "objects";
+type ColumnKind = "text" | "boolean" | "list" | "objects";
 
 export interface Column {
   key: string;
@@ -16,12 +16,12 @@ export interface TableRow {
   values: Record<string, CellValue>;
 }
 
-export interface DerivedTable {
+interface DerivedTable {
   columns: Column[];
   rows: TableRow[];
 }
 
-export const ID_COLUMN = "id";
+const ID_COLUMN = "id";
 
 const LIST_SEPARATOR = "; ";
 const DEFAULT_HIDDEN_FIELDS = new Set(["description"]);

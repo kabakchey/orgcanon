@@ -54,8 +54,7 @@ export async function layoutElements(
       "elk.layered.cycleBreaking.strategy": "GREEDY",
       // Routes a cycle's closing edge (dependency cycles are legitimate, not an error) through its own lane
       // instead of hugging the nearest node -- without this, ELK squeezes it a few px from a
-      // card's edge, which reads as the connector overlapping the card (see the "Audit Log"
-      // example component's dependency cycle for a reproduction). The larger edge/node spacing
+      // card's edge, which reads as the connector overlapping the card. The larger edge/node spacing
       // below gives that lane (and ordinary edge-node clearance generally) enough room to read
       // as clearly separate from any card.
       "elk.layered.feedbackEdges": "true",

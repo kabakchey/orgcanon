@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
-import { applyFold } from "../../../src/lib/relationships/apply-fold";
+import { applyFold } from "../../../src/lib/fold/apply-fold";
 import { computeAutoFoldedIds } from "../../../src/lib/fold/auto-fold";
 
 function node(id: string): Node {

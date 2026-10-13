@@ -1,6 +1,4 @@
-# Mirrors .gitignore -- these are always empty or absent when the Dockerfile's manifest-only
-# COPY steps run, but excluding them keeps a stray local one from ever bloating the build
-# context or leaking into an image layer.
+# Keeps local build output and dependency dirs out of the image's `COPY . /app` layer.
 .git/
 /.dist/
 tools/orgapi/.dist/

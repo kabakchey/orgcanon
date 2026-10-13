@@ -1,32 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { findRootTeamId, orgTreeToFlow } from "../../../src/lib/relationships/org-tree-to-flow";
-import { EDGE_STYLE } from "../../../src/components/edge-styles";
+import { EDGE_STYLE } from "../../../src/lib/relationships/edge-styles";
 import type { AuthorityLine, AuthorityLineType, Person, Team } from "../../../src/lib/orgapi/types";
-
-function team(overrides: Partial<Team> & { head: string }): Team {
-  return {
-    name: "T",
-    type: "squad",
-    description: "",
-    documentation_url: "",
-    contact_email: "t@example.com",
-    parent_team: null,
-    head_title: "Head",
-    head_deputy: null,
-    head_deputy_title: null,
-    is_head_primary_team: true,
-    is_head_deputy_primary_team: null,
-    is_head_interim: false,
-    is_head_deputy_interim: null,
-    external_references: {},
-    members: [],
-    reviewable: { expiration_date: "2027-01-01", notes: "", owner: "x" },
-    is_hierarchical: false,
-    is_cross_functional: false,
-    is_temporary: false,
-    ...overrides,
-  };
-}
+import { team } from "../../fixtures/entities";
 
 describe("orgTreeToFlow", () => {
   it("builds team and person nodes with hierarchy and membership edges", () => {
@@ -272,7 +248,7 @@ describe("orgTreeToFlow non-hierarchical team edges", () => {
       squad: team({ name: "Squad", head: "d", parent_team: "root", is_hierarchical: true }),
     };
 
-    const { edges } = orgTreeToFlow(teams, {}, "DOWN", { showPeople: false });
+    const { edges } = orgTreeToFlow(teams, {}, { showPeople: false });
     const styleOf = (id: string) => edges.find((e) => e.id === id)?.style;
 
     expect(styleOf("hierarchy:root->group")).toEqual(EDGE_STYLE.nonHierarchical);
@@ -352,7 +328,7 @@ describe("orgTreeToFlow holder-to-deputy edges", () => {
       "tech-lead": { title: "Tech Lead", description: "", documentation_url: "", reviewable: { expiration_date: "2027-01-01", notes: "", owner: "x" } },
     };
 
-    const { edges } = orgTreeToFlow(teams, {}, "DOWN", { showPeople: true, showAuthorityLines: true, authorityLines, authorityLineTypes });
+    const { edges } = orgTreeToFlow(teams, {}, { showPeople: true, showAuthorityLines: true, authorityLines, authorityLineTypes });
 
     const deputyEdges = edges.filter((e) => e.id.startsWith("deputy:"));
     expect(deputyEdges).toHaveLength(3);
@@ -397,14 +373,14 @@ describe("orgTreeToFlow options", () => {
   };
 
   it("omits person nodes and membership edges when showPeople is false", () => {
-    const { nodes, edges } = orgTreeToFlow(teams, people, "DOWN", { showPeople: false });
+    const { nodes, edges } = orgTreeToFlow(teams, people, { showPeople: false });
 
     expect(nodes.map((n) => n.id)).toEqual(["team:platform-squad"]);
     expect(edges).toEqual([]);
   });
 
   it("adds authority-line and deputy edges styled like Authority Over's when showAuthorityLines is true", () => {
-    const { nodes, edges } = orgTreeToFlow(teams, people, "DOWN", {
+    const { nodes, edges } = orgTreeToFlow(teams, people, {
       showPeople: false,
       showAuthorityLines: true,
       authorityLines,
@@ -419,7 +395,7 @@ describe("orgTreeToFlow options", () => {
   });
 
   it("dedupes a person who is both a member and an authority-line holder into one node", () => {
-    const { nodes, edges } = orgTreeToFlow(teams, people, "DOWN", {
+    const { nodes, edges } = orgTreeToFlow(teams, people, {
       showPeople: true,
       showAuthorityLines: true,
       authorityLines,

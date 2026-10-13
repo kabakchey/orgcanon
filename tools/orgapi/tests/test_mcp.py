@@ -1,7 +1,9 @@
-"""Pins the MCP layer: fastapi-mcp auto-generates one MCP tool per REST route from the app's
-own OpenAPI schema, then executes each tool call in-process against
-the same FastAPI app -- so these tests confirm tool discovery and prove tool calls behave
-identically to the equivalent REST call, not a second, hand-maintained implementation.
+"""Pins the MCP layer.
+
+fastapi-mcp auto-generates one MCP tool per REST route from the app's own OpenAPI schema, then
+executes each tool call in-process against the same FastAPI app -- so these tests confirm tool
+discovery and prove tool calls behave identically to the equivalent REST call, not a second,
+hand-maintained implementation.
 """
 
 import json

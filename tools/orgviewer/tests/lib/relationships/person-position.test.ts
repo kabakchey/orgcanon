@@ -19,6 +19,7 @@ function person(positions: Position[]): Person {
   return {
     name: "Carol Lee",
     email: "",
+    documentation_url: "",
     primary_specialization: "",
     secondary_specializations: [],
     external_references: {},

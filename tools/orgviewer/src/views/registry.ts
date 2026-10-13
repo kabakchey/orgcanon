@@ -6,9 +6,9 @@ import { TeamComponentsView } from "./team-components-view";
 import { ComponentDependenciesView } from "./component-dependencies-view";
 import { EntitiesView } from "./entities-view";
 
-export type ViewComponent = () => ReactElement;
+type ViewComponent = () => ReactElement;
 
-export interface ViewDefinition {
+interface ViewDefinition {
   slug: string;
   title: string;
   description: string;

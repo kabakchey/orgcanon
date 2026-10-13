@@ -1,5 +1,6 @@
 import type { Edge } from "@xyflow/react";
-import { lineManagementStyle } from "../../components/edge-styles";
+import { lineManagementStyle } from "./edge-styles";
+import { flowEdge } from "./flow-elements";
 import { withInterimSuffix } from "./interim";
 import type { Team } from "../orgapi/types";
 
@@ -15,13 +16,15 @@ export function headDeputyEdges(
     for (const [teamId, team] of Object.entries(teams)) {
       if (team.head !== headId || !team.head_deputy) continue;
       deputyIds.push(team.head_deputy);
-      edges.push({
-        id: `deputy:${teamId}:${headId}->${team.head_deputy}`,
-        source: `person:${headId}`,
-        target: `person:${team.head_deputy}`,
-        style: lineManagementStyle(team.is_hierarchical),
-        label: withInterimSuffix(`Deputy (${team.name})`, team.is_head_deputy_interim ?? false),
-      });
+      edges.push(
+        flowEdge(
+          `deputy:${teamId}:${headId}->${team.head_deputy}`,
+          `person:${headId}`,
+          `person:${team.head_deputy}`,
+          lineManagementStyle(team.is_hierarchical),
+          withInterimSuffix(`Deputy (${team.name})`, team.is_head_deputy_interim ?? false)
+        )
+      );
     }
   }
   return { deputyIds, edges };

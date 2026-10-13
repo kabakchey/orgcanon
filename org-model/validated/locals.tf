@@ -2,7 +2,7 @@
 # still holding a Team.head/AuthorityLine/Reviewable.owner slot hard-blocks `apply` (these
 # `validation` conditions depend on timestamp(), which Terraform defers past `plan` -- see
 # docs/invariants.md's "Tooling caveat"). `reviewable.expiration_date` staleness is also
-# blocking, but as a plain Python comparison in scripts/check_reviewable_staleness.py against
+# blocking, but as a plain Python comparison in scripts/check_reviewable_expiration.py against
 # `plan` output, so it never needs `apply` -- see docs/invariants.md's "Reviewable expiration
 # must not be lapsed".
 #
@@ -11,15 +11,14 @@
 # three checks hosted inside `people` inline the same predicate directly instead.
 
 locals {
+  entity_id_pattern = "^[a-z0-9]+(-[a-z0-9]+)*$"
+
   today = formatdate("YYYY-MM-DD", timestamp())
 
   # "Departed" iff every position has fully ended (end_date set and strictly before today;
   # end_date == today still counts as active). start_date isn't part of this -- a not-yet-started
   # position has a null/future end_date, so it falls out without a separate case. An empty
   # positions list also counts as departed, defensively (can't happen in valid data).
-  #
-  # `? :` not `&&`: neither is lazy in HCL, so timecmp() would error on a null end_date even
-  # when the null check alone decides the result -- see the same pattern in variables.tf.
   departed_person_ids = toset([
     for id, p in var.people : id
     if length(p.positions) > 0 && alltrue([

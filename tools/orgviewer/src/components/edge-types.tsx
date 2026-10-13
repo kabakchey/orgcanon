@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useReactFlow, type EdgeProps } from "@xyflow/react";
 import { CopyButton } from "./copy-button";
-import type { RoutePoint } from "./layout";
+import type { RoutePoint } from "../lib/layout/elk-layout";
 import { nearestSegmentInsertIndex } from "../lib/layout/layout-override";
 
 // A callback threaded through an edge's `data`, built once per edge by graph-canvas.tsx and
@@ -26,8 +26,7 @@ function chordStep(a: RoutePoint, b: RoutePoint): number {
 // blow up into large loops whenever consecutive segments have very different lengths -- exactly
 // what a cycle's closing edge tends to produce (one short bend segment next to a long one). The
 // centripetal form scales tangents by chord length instead, which stays well-behaved for
-// unevenly-spaced points. See tests/components/graph-canvas.test.tsx's cycle-routing test for the
-// regression this guards.
+// unevenly-spaced points.
 //
 // Falls back to a straight line for the degenerate 2-point case, though callers only reach this
 // with 3+ points (see LabeledEdge's `routed`).
@@ -93,10 +92,7 @@ export function LabeledEdge({
   // replaced with the edge's actual live handle positions below. A stored route's endpoints are
   // whatever they were at the moment it was frozen (see layout-override.ts's snapshotLayout);
   // if either connected node is later dragged elsewhere, trusting those stale endpoints would
-  // leave the edge visually detached from its own node -- precisely the disconnected-connector
-  // problem this component exists to avoid (see the "Audit Log" example component's dependency
-  // cycle for the original reproduction, and its 3-node-cycle test in graph-canvas.test.tsx for
-  // this specific regression).
+  // leave the edge visually detached from its own node.
   const storedRoute = (data as { route?: RoutePoint[]; onRouteChange?: OnEdgeRouteChange } | undefined)?.route;
   const onRouteChange = (data as { onRouteChange?: OnEdgeRouteChange } | undefined)?.onRouteChange;
   const bendPoints = storedRoute && storedRoute.length > 2 ? storedRoute.slice(1, -1) : [];

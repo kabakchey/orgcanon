@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, layoutElements } from "../../src/components/layout";
+import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, layoutElements } from "../../../src/lib/layout/elk-layout";
 
 function overlapsAnyNode(point: { x: number; y: number }, nodes: Node[]): boolean {
   return nodes.some(

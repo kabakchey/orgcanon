@@ -15,3 +15,10 @@ tools/orgapi/tests/fixtures/orgdata/.terraform/
 # orgapi (tools/orgapi/) -- Python venv, recreated by `uv sync`.
 tools/orgapi/.venv/
 **/__pycache__/
+
+*.orig
+
+ai-dlc/
+aidlc-docs/
+.aidlc/
+.aidlc-rule-details/

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { Position, type Edge, type Node } from "@xyflow/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { GraphCanvas } from "../../src/components/graph-canvas";
-import { EDGE_STYLE } from "../../src/components/edge-styles";
+import { EDGE_STYLE } from "../../src/lib/relationships/edge-styles";
 
 function renderWithRouter(ui: React.ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -18,7 +18,7 @@ describe("GraphCanvas", () => {
     ];
     const edges: Edge[] = [{ id: "e1", source: "team:a", target: "person:b" }];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test" />);
 
     expect(await screen.findByText("Team A")).toBeInTheDocument();
     expect(await screen.findByText("Person B")).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe("GraphCanvas legend", () => {
     ];
     const edges: Edge[] = [{ id: "e1", source: "team:a", target: "person:b", style: EDGE_STYLE.membership }];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test" />);
 
     const legend = await screen.findByRole("region", { name: "Legend" });
     expect(legend.closest(".react-flow__panel")).toHaveClass("bottom", "right");
@@ -44,8 +44,8 @@ describe("GraphCanvas legend", () => {
 describe("GraphCanvas layout failure handling", () => {
   it("shows a visible fallback message instead of silently rendering when layoutElements rejects", async () => {
     vi.resetModules();
-    vi.doMock("../../src/components/layout", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("../../src/components/layout")>();
+    vi.doMock("../../src/lib/layout/elk-layout", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../../src/lib/layout/elk-layout")>();
       return {
         ...actual,
         layoutElements: () => Promise.reject(new Error("boom")),
@@ -62,19 +62,19 @@ describe("GraphCanvas layout failure handling", () => {
     ];
     const edges: Edge[] = [];
 
-    renderWithRouter(<GraphCanvasWithMockedLayout nodes={nodes} edges={edges} />);
+    renderWithRouter(<GraphCanvasWithMockedLayout nodes={nodes} edges={edges} graphKey="test" />);
 
     expect(await screen.findByText(/failed to lay out graph/i)).toBeInTheDocument();
 
     errorSpy.mockRestore();
-    vi.doUnmock("../../src/components/layout");
+    vi.doUnmock("../../src/lib/layout/elk-layout");
     vi.resetModules();
   });
 });
 
 describe("GraphCanvas empty state", () => {
   it("shows a placeholder instead of the graph when there are no nodes", () => {
-    renderWithRouter(<GraphCanvas nodes={[]} edges={[]} />);
+    renderWithRouter(<GraphCanvas nodes={[]} edges={[]} graphKey="test" />);
 
     expect(screen.getByText(/select/i)).toBeInTheDocument();
     expect(document.querySelector(".react-flow")).toBeNull();
@@ -89,7 +89,7 @@ describe("GraphCanvas selection highlight", () => {
     ];
     const edges: Edge[] = [];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} selectedNodeId="person:a" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test" selectedNodeId="person:a" />);
 
     const nodeA = await screen.findByText("A");
     const nodeB = await screen.findByText("B");
@@ -117,7 +117,7 @@ describe("GraphCanvas re-centering", () => {
     const nodesA: Node[] = [
       { id: "team:a", type: "team", position: { x: 0, y: 0 }, data: { label: "Team A" } },
     ];
-    const { rerender } = renderWithRouter(<GraphCanvasWithMockedFitView nodes={nodesA} edges={[]} />);
+    const { rerender } = renderWithRouter(<GraphCanvasWithMockedFitView nodes={nodesA} edges={[]} graphKey="test" />);
     // One fit on mount, one once ELK's first layout lands.
     await waitFor(() => expect(fitViewMock.mock.calls.length).toBe(2));
     expect(fitViewMock.mock.calls).toEqual([[], []]);
@@ -128,7 +128,7 @@ describe("GraphCanvas re-centering", () => {
     ];
     rerender(
       <MemoryRouter>
-        <GraphCanvasWithMockedFitView nodes={nodesB} edges={[]} />
+        <GraphCanvasWithMockedFitView nodes={nodesB} edges={[]} graphKey="test" />
       </MemoryRouter>
     );
 
@@ -167,7 +167,7 @@ describe("GraphCanvas camera in the URL", () => {
     const { flow, MockedCanvas } = await importWithMockedFlow();
     render(
       <MemoryRouter initialEntries={["/?zoom=0.5&x=10&y=20"]}>
-        <MockedCanvas nodes={nodes} edges={[]} />
+        <MockedCanvas nodes={nodes} edges={[]} graphKey="test" />
       </MemoryRouter>
     );
 
@@ -182,7 +182,7 @@ describe("GraphCanvas camera in the URL", () => {
     const { flow, MockedCanvas } = await importWithMockedFlow();
     render(
       <MemoryRouter initialEntries={["/?teamId=a"]}>
-        <MockedCanvas nodes={nodes} edges={[]} />
+        <MockedCanvas nodes={nodes} edges={[]} graphKey="test" />
         <Search />
       </MemoryRouter>
     );
@@ -223,7 +223,7 @@ describe("GraphCanvas default folding", () => {
       <GraphCanvas
         nodes={nodes}
         edges={edges}
-        foldStorageKey="test-default-fold"
+        graphKey="test-default-fold"
         defaultFoldedNodeIds={new Set(["team:potuto"])}
       />
     );
@@ -258,7 +258,7 @@ describe("GraphCanvas auto-fold default", () => {
     const { nodes, edges } = buildFanGraph();
     expect(nodes).toHaveLength(21);
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-auto-fold" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test-auto-fold" />);
 
     await screen.findByText("Root");
     await waitFor(() => {
@@ -271,7 +271,7 @@ describe("GraphCanvas auto-fold default", () => {
     localStorage.setItem("orgviewer-fold:test-auto-fold-stored", JSON.stringify([]));
     const { nodes, edges } = buildFanGraph();
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-auto-fold-stored" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test-auto-fold-stored" />);
 
     await screen.findByText("Root");
     await waitFor(() => {
@@ -295,7 +295,7 @@ describe("GraphCanvas dependency cycle routing", () => {
         id: "component:a",
         type: "component",
         position: { x: 0, y: 0 },
-        data: { label: "A", direction: "RIGHT" },
+        data: { label: "A" },
         measured: { width: 200, height: 88 },
         handles: rightHandles,
       },
@@ -303,7 +303,7 @@ describe("GraphCanvas dependency cycle routing", () => {
         id: "component:b",
         type: "component",
         position: { x: 0, y: 0 },
-        data: { label: "B", direction: "RIGHT" },
+        data: { label: "B" },
         measured: { width: 200, height: 88 },
         handles: rightHandles,
       },
@@ -311,7 +311,7 @@ describe("GraphCanvas dependency cycle routing", () => {
         id: "component:c",
         type: "component",
         position: { x: 0, y: 0 },
-        data: { label: "C", direction: "RIGHT" },
+        data: { label: "C" },
         measured: { width: 200, height: 88 },
         handles: rightHandles,
       },
@@ -322,7 +322,7 @@ describe("GraphCanvas dependency cycle routing", () => {
       { id: "dependency:c->a", source: "component:c", target: "component:a" },
     ];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} direction="RIGHT" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test" direction="RIGHT" />);
     await screen.findByText("A");
 
     // GraphCanvas renders synchronously with un-laid-out (0,0) positions first, then re-renders
@@ -370,7 +370,7 @@ describe("GraphCanvas folding", () => {
       { id: "hierarchy:potuto->r-and-d", source: "team:potuto", target: "team:r-and-d" },
     ];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-org-tree" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test-org-tree" />);
 
     const toggle = await screen.findByRole("button", { name: "Collapse" });
     await userEvent.click(toggle);
@@ -397,7 +397,7 @@ describe("GraphCanvas fold all / unfold all", () => {
 
   it("Fold all folds every foldable node, nested ones included, so expanding the top reveals one level", async () => {
     localStorage.clear();
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-fold-all" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test-fold-all" />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Fold all" }));
     await waitFor(() => expect(screen.queryByText("Bravo")).toBeNull());
@@ -410,7 +410,7 @@ describe("GraphCanvas fold all / unfold all", () => {
   it("Unfold all expands every folded node and persists it", async () => {
     localStorage.clear();
     localStorage.setItem("orgviewer-fold:test-unfold-all", JSON.stringify(["team:a", "team:b"]));
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} foldStorageKey="test-unfold-all" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test-unfold-all" />);
 
     await userEvent.click(await screen.findByRole("button", { name: "Unfold all" }));
 
@@ -419,18 +419,11 @@ describe("GraphCanvas fold all / unfold all", () => {
   });
 
   it("shows neither button when the graph has nothing foldable", async () => {
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={[]} foldStorageKey="test-nothing-foldable" />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={[]} graphKey="test-nothing-foldable" />);
 
     expect(await screen.findByRole("button", { name: "Export as Mermaid" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Unfold all" })).toBeNull();
-  });
-
-  it("shows neither button when the view has folding disabled", async () => {
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
-
-    expect(await screen.findByRole("button", { name: "Export as Mermaid" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Fold all" })).toBeNull();
   });
 });
 
@@ -469,7 +462,7 @@ describe("GraphCanvas manual layout persistence", () => {
     const edges: Edge[] = [{ id: "dependency:a->b", source: "component:a", target: "component:b" }];
 
     renderWithRouter(
-      <GraphCanvasWithMockedFlow nodes={nodes} edges={edges} foldStorageKey="component-dependencies:a:direct" />
+      <GraphCanvasWithMockedFlow nodes={nodes} edges={edges} graphKey="component-dependencies:a:direct" />
     );
 
     await waitFor(() => {
@@ -505,7 +498,7 @@ describe("GraphCanvas manual layout persistence", () => {
     ];
 
     renderWithRouter(
-      <GraphCanvas nodes={nodes} edges={[]} foldStorageKey="component-dependencies:a:direct" />
+      <GraphCanvas nodes={nodes} edges={[]} graphKey="component-dependencies:a:direct" />
     );
 
     const resetButton = await screen.findByRole("button", { name: "Reset graph" });
@@ -533,7 +526,7 @@ describe("GraphCanvas mermaid export", () => {
     const edges: Edge[] = [{ id: "e1", source: "team:a", target: "person:b", label: "Lead" }];
 
     renderWithRouter(
-      <GraphCanvasWithMockedDownload nodes={nodes} edges={edges} foldStorageKey="chain-of-command:carol-lee" />
+      <GraphCanvasWithMockedDownload nodes={nodes} edges={edges} graphKey="chain-of-command:carol-lee" />
     );
 
     const exportButton = await screen.findByRole("button", { name: "Export as Mermaid" });

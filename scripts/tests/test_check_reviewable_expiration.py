@@ -14,13 +14,17 @@ def _wrap(value):
     return {"value": value}
 
 
+def _plan(outputs):
+    return {"planned_values": {"outputs": outputs}}
+
+
 class TestFindReviewables(unittest.TestCase):
     def test_finds_top_level_reviewable_on_every_entity_type(self):
         outputs = {
             "teams": _wrap({"acme-hq": {"reviewable": {"expiration_date": "2027-01-01"}}}),
             "components": _wrap({"api": {"reviewable": {"expiration_date": "2026-01-01"}}}),
         }
-        found = find_reviewables(outputs)
+        found = find_reviewables(_plan(outputs))
         keys = {(entity_key, path) for entity_key, path, _ in found}
         self.assertEqual(keys, {("teams", "acme-hq"), ("components", "api")})
 
@@ -38,7 +42,7 @@ class TestFindReviewables(unittest.TestCase):
                 }
             )
         }
-        found = find_reviewables(outputs)
+        found = find_reviewables(_plan(outputs))
         paths = {path for _, path, _ in found}
         self.assertEqual(
             paths,
@@ -57,7 +61,7 @@ class TestFindViolations(unittest.TestCase):
                 }
             )
         }
-        violations = find_violations(outputs, as_of="2026-08-25", max_horizon_days=365)
+        violations = find_violations(_plan(outputs), as_of="2026-08-25", max_horizon_days=365)
         self.assertEqual(
             violations,
             [
@@ -68,16 +72,16 @@ class TestFindViolations(unittest.TestCase):
 
     def test_expiration_date_equal_to_as_of_is_not_a_violation(self):
         outputs = {"teams": _wrap({"t": {"reviewable": {"expiration_date": "2026-08-25"}}})}
-        self.assertEqual(find_violations(outputs, as_of="2026-08-25", max_horizon_days=365), [])
+        self.assertEqual(find_violations(_plan(outputs), as_of="2026-08-25", max_horizon_days=365), [])
 
     def test_expiration_date_beyond_max_horizon_is_flagged_too_far_in_the_future(self):
         outputs = {"teams": _wrap({"t": {"reviewable": {"expiration_date": "2027-08-26"}}})}
-        violations = find_violations(outputs, as_of="2026-08-25", max_horizon_days=365)
+        violations = find_violations(_plan(outputs), as_of="2026-08-25", max_horizon_days=365)
         self.assertEqual(violations, [("teams", "t", "2027-08-26", "too far in the future")])
 
     def test_expiration_date_exactly_at_max_horizon_is_not_a_violation(self):
         outputs = {"teams": _wrap({"t": {"reviewable": {"expiration_date": "2027-08-25"}}})}
-        self.assertEqual(find_violations(outputs, as_of="2026-08-25", max_horizon_days=365), [])
+        self.assertEqual(find_violations(_plan(outputs), as_of="2026-08-25", max_horizon_days=365), [])
 
     def test_overdue_and_too_far_out_can_both_be_flagged_together_sorted(self):
         outputs = {
@@ -88,7 +92,7 @@ class TestFindViolations(unittest.TestCase):
                 }
             )
         }
-        violations = find_violations(outputs, as_of="2026-08-25", max_horizon_days=365)
+        violations = find_violations(_plan(outputs), as_of="2026-08-25", max_horizon_days=365)
         self.assertEqual(
             violations,
             [
@@ -100,7 +104,7 @@ class TestFindViolations(unittest.TestCase):
 
 class TestMainExitCode(unittest.TestCase):
     def _run(self, outputs, as_of):
-        plan = {"planned_values": {"outputs": outputs}}
+        plan = _plan(outputs)
         argv = ["check_reviewable_expiration.py", "--as-of", as_of]
         with mock.patch.object(sys, "argv", argv), mock.patch.object(
             sys, "stdin", io.StringIO(json.dumps(plan))

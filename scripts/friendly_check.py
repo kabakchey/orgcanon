@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Runs `terraform plan` for org-model/ and, on failure, re-prints just the validation
-error_message text (e.g. "people[*].email must be unique across all people.") instead of the
-full Terraform error block (module trace, file/line context, "This was checked by the
-validation rule at ..."). Written for the non-technical editing workflow described in
-docs/onboarding-people-ops.md -- someone editing org-model/common/ or
-org-model/teams/<team>/ shouldn't need to parse a Terraform stack trace to find out what they
-broke.
+"""Runs `terraform plan` for org-model/ and re-prints only the validation error messages.
+
+On failure, shows just the error_message text (e.g. "people[*].email must be unique across all
+people.") instead of the full Terraform error block. Written for the non-technical editing
+workflow described in docs/onboarding-people-ops.md.
 
 Does NOT replace `make check` -- this is a friendlier *view* of the same failure, not a
 different check, and is not wired into CI (CI keeps the full Terraform output, which platform
@@ -32,13 +30,9 @@ def extract_messages(plan_output: str) -> list[str]:
     return [m.group("message").strip() for m in ERROR_RE.finditer(plan_output)]
 
 
-def _default_terraform_bin() -> str:
-    return os.environ.get("TERRAFORM_BIN", "terraform")
-
-
 def main() -> int:
     result = subprocess.run(
-        [_default_terraform_bin(), "-chdir=org-model", "plan", "-input=false", "-no-color"],
+        [os.environ.get("TERRAFORM_BIN", "terraform"), "-chdir=org-model", "plan", "-input=false", "-no-color"],
         capture_output=True,
         text=True,
     )

@@ -101,7 +101,7 @@ interim flag are not shown; use a position for those.
 You need an Atlassian account that can install apps on your Confluence site, Node 22 or 24, and
 the Forge CLI (`npm install -g @forge/cli`, then `forge login`). Run everything below from this
 directory, starting with `npm install`: Forge packages the app from this directory's own
-`node_modules`, which `make test` never creates here -- it keeps its copy inside Docker. If Docker
+`node_modules`, which `make check` never creates here -- it keeps its copy inside Docker. If Docker
 has left an empty, root-owned `node_modules` behind, remove it first.
 
 ### 1. Expose orgapi, behind a shared secret
@@ -193,7 +193,7 @@ field, say) can reuse it.
 ## Tests
 
 ```
-make test      # eslint + tsc --noEmit + vitest
+make check     # lint + typecheck + test, each also a target of its own
 ```
 
 This is what `make check-orgconfluence` at the repo root, CI and pre-commit run. It covers the

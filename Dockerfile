@@ -17,21 +17,11 @@ RUN git config --global --add safe.directory /app
 
 WORKDIR /app
 
-# Space-separated; everything below this line is rebuilt per distinct value.
-ARG TOOLCHAINS="terraform gh uv"
-RUN for toolchain in $TOOLCHAINS; do \
-        case "$toolchain" in \
-            terraform|gh|uv|node) ;; \
-            *) echo "unknown toolchain '$toolchain' (valid: terraform gh uv node)" >&2; exit 1 ;; \
-        esac; \
-    done
-
 # Terraform's version pin lives here only -- the Makefile never installs Terraform (native dev
 # is expected to have it on PATH). $VERSION_CODENAME comes from the base image's own
 # /etc/os-release, so this tracks whatever Debian release python:3.12-slim is on.
 ARG TF_VERSION=1.9.8
-RUN case " $TOOLCHAINS " in *" terraform "*) ;; *) exit 0 ;; esac \
-    && curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
     && . /etc/os-release \
     && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $VERSION_CODENAME main" > /etc/apt/sources.list.d/hashicorp.list \
     && apt-get update -qq \
@@ -39,42 +29,47 @@ RUN case " $TOOLCHAINS " in *" terraform "*) ;; *) exit 0 ;; esac \
     && rm -rf /var/lib/apt/lists/*
 
 # Only post-review-comment's GitHub path needs gh -- GitLab's posting uses stdlib urllib.
-RUN case " $TOOLCHAINS " in *" gh "*) ;; *) exit 0 ;; esac \
-    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-RUN case " $TOOLCHAINS " in *" uv "*) ;; *) exit 0 ;; esac \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:${PATH}"
 
-RUN case " $TOOLCHAINS " in *" node "*) ;; *) exit 0 ;; esac \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y -qq --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
     && corepack enable
 
+# 0 leaves out what only tests need (orgapi's `dev` dependency group, orgconfluence's
+# dependencies), for an image that just runs orgapi.
+ARG DEV_TOOLS=1
+
 # Manifests only (not the rest of tools/orgapi) keeps this layer cached across source edits.
-# --no-install-project: only deps install now; `docker run` re-runs `uv sync` to install the
-# project itself, fast since deps are already cached.
 COPY tools/orgapi/pyproject.toml tools/orgapi/uv.lock /app/tools/orgapi/
-RUN case " $TOOLCHAINS " in *" uv "*) ;; *) exit 0 ;; esac \
-    && cd /app/tools/orgapi && uv sync --frozen --no-install-project
+RUN cd /app/tools/orgapi \
+    && uv sync --frozen --no-install-project $([ "$DEV_TOOLS" = 1 ] || echo --no-dev)
 
 # No pnpm version literal here -- corepack reads it from package.json's `packageManager` field,
 # the same source of truth `pnpm install` uses.
 COPY tools/orgviewer/package.json tools/orgviewer/pnpm-lock.yaml /app/tools/orgviewer/
-RUN case " $TOOLCHAINS " in *" node "*) ;; *) exit 0 ;; esac \
-    && cd /app/tools/orgviewer \
+RUN cd /app/tools/orgviewer \
     && corepack prepare --activate \
     && pnpm install --frozen-lockfile
 
 COPY tools/orgconfluence/package.json tools/orgconfluence/pnpm-lock.yaml /app/tools/orgconfluence/
-RUN case " $TOOLCHAINS " in *" node "*) ;; *) exit 0 ;; esac \
-    && cd /app/tools/orgconfluence \
+RUN [ "$DEV_TOOLS" = 1 ] || exit 0; \
+    cd /app/tools/orgconfluence \
     && corepack prepare --activate \
     && pnpm install --frozen-lockfile
 
 COPY . /app
+
+RUN cd /app/tools/orgapi \
+    && uv sync --frozen $([ "$DEV_TOOLS" = 1 ] || echo --no-dev)
+
+# Outside /app: the Makefiles bind-mount the working tree over /app, which would hide it.
+RUN make -C /app/tools/orgviewer _build DIST_DIR=/opt/orgviewer
+ENV VIEWER_DIR=/opt/orgviewer

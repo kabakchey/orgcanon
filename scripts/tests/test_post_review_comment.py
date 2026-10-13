@@ -22,18 +22,18 @@ class TestFindExistingNoteId(unittest.TestCase):
             {"id": 1, "body": "unrelated note", "author": {"id": 42}},
             {"id": 2, "body": f"{MARKER}\nold summary", "author": {"id": 99}},
         ]
-        self.assertEqual(find_existing_note_id(notes, MARKER, author_id=99), 2)
+        self.assertEqual(find_existing_note_id(notes, author_id=99), 2)
 
     def test_ignores_a_marker_match_from_a_different_author(self):
         notes = [{"id": 1, "body": f"{MARKER}\nspoofed", "author": {"id": 42}}]
-        self.assertIsNone(find_existing_note_id(notes, MARKER, author_id=99))
+        self.assertIsNone(find_existing_note_id(notes, author_id=99))
 
     def test_returns_none_when_no_note_matches(self):
         notes = [{"id": 1, "body": "unrelated note", "author": {"id": 99}}]
-        self.assertIsNone(find_existing_note_id(notes, MARKER, author_id=99))
+        self.assertIsNone(find_existing_note_id(notes, author_id=99))
 
     def test_returns_none_for_empty_list(self):
-        self.assertIsNone(find_existing_note_id([], MARKER, author_id=99))
+        self.assertIsNone(find_existing_note_id([], author_id=99))
 
 
 class TestPostGithub(unittest.TestCase):

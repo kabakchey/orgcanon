@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Blocks a Role/AuthorityLine/team.head_deputy losing active status without a matching entry
-in `retirement_confirmations` -- see docs/invariants.md's "Retirement confirmation" section.
-Unlike every other invariant in this repo, this one is inherently a diff: nothing in
-`org-model/validated/`'s single-state Terraform validation can see that a key used to exist, so
-this reads two `terraform show -json` plan documents (before/after), the same shape
-scripts/summarize_org_diff.py already consumes -- but unlike that script (informational only),
-this one is a hard gate: see Makefile's `_check-retirement-confirmations`.
+"""Blocks a Role/AuthorityLine/team.head_deputy losing active status without a confirmation.
+
+A matching entry in `retirement_confirmations` is required -- see docs/invariants.md's
+"Retirement confirmation" section. Unlike every other invariant in this repo, this one is
+inherently a diff: nothing in `org-model/validated/`'s single-state Terraform validation can see
+that a key used to exist, so this reads two `terraform show -json` plan documents
+(before/after).
 
 A transition needs a fresh confirmation every time it happens, even if the same entity was
 already confirmed once before (e.g. retired-with-confirmation now being pruned from the data
@@ -17,16 +17,10 @@ Usage:
     python3 scripts/check_retirement_confirmations.py before.json after.json
 """
 
-import json
 import sys
 from typing import Any
 
-
-def _outputs_value(plan_json: dict[str, Any], key: str) -> dict[str, Any]:
-    return (
-        plan_json.get("planned_values", {}).get("outputs", {}).get(key, {}).get("value", {})
-        or {}
-    )
+from plan_json import output_value, read_plan_file
 
 
 def removed_role_ids(before_roles: dict[str, Any], after_roles: dict[str, Any]) -> set[str]:
@@ -50,9 +44,11 @@ def newly_retired_authority_line_ids(
 def cleared_head_deputies(
     before_teams: dict[str, Any], after_teams: dict[str, Any]
 ) -> dict[str, str]:
-    """team_id -> the person id who was head_deputy, for every team whose head_deputy went
-    from set to unset. Teams present on only one side are ignored -- team creation/deletion
-    itself isn't this script's concern."""
+    """Map team_id to the former head_deputy, for every team whose head_deputy was cleared.
+
+    Teams present on only one side are ignored -- team creation/deletion itself isn't this
+    script's concern.
+    """
     return {
         team_id: before_teams[team_id]["head_deputy"]
         for team_id in set(before_teams) & set(after_teams)
@@ -62,64 +58,46 @@ def cleared_head_deputies(
 
 
 def find_missing_confirmations(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
-    before_roles, after_roles = _outputs_value(before, "roles"), _outputs_value(after, "roles")
-    before_lines, after_lines = (
-        _outputs_value(before, "authority_lines"),
-        _outputs_value(after, "authority_lines"),
-    )
-    before_teams, after_teams = _outputs_value(before, "teams"), _outputs_value(after, "teams")
-    confirmations = _outputs_value(after, "retirement_confirmations").values()
+    def changed(key: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        return output_value(before, key), output_value(after, key)
 
-    errors = []
-
-    for role_id in sorted(removed_role_ids(before_roles, after_roles)):
-        if not any(
-            c["entity_type"] == "role" and c["entity_id"] == role_id for c in confirmations
-        ):
-            errors.append(
-                f"role `{role_id}` was removed with no matching retirement_confirmations entry "
-                f'(entity_type="role", entity_id="{role_id}")'
+    required = [
+        *(
+            (f"role `{role_id}` was removed", {"entity_type": "role", "entity_id": role_id})
+            for role_id in sorted(removed_role_ids(*changed("roles")))
+        ),
+        *(
+            (
+                f"authority_line `{line_id}` was removed or end-dated",
+                {"entity_type": "authority_line", "entity_id": line_id},
             )
-
-    for line_id in sorted(newly_retired_authority_line_ids(before_lines, after_lines)):
-        if not any(
-            c["entity_type"] == "authority_line" and c["entity_id"] == line_id
-            for c in confirmations
-        ):
-            errors.append(
-                f"authority_line `{line_id}` was removed or end-dated with no matching "
-                f'retirement_confirmations entry (entity_type="authority_line", '
-                f'entity_id="{line_id}")'
+            for line_id in sorted(newly_retired_authority_line_ids(*changed("authority_lines")))
+        ),
+        *(
+            (
+                f"team `{team_id}`'s head_deputy (`{former_person}`) was cleared",
+                {"entity_type": "head_deputy", "entity_id": team_id, "former_person": former_person},
             )
-
-    for team_id, former_person in sorted(
-        cleared_head_deputies(before_teams, after_teams).items()
-    ):
+            for team_id, former_person in sorted(cleared_head_deputies(*changed("teams")).items())
+        ),
+    ]
+    confirmations = output_value(after, "retirement_confirmations").values()
+    return [
+        f"{what} with no matching retirement_confirmations entry "
+        + "(" + ", ".join(f'{field}="{value}"' for field, value in expected.items()) + ")"
+        for what, expected in required
         if not any(
-            c["entity_type"] == "head_deputy"
-            and c["entity_id"] == team_id
-            and c.get("former_person") == former_person
-            for c in confirmations
-        ):
-            errors.append(
-                f"team `{team_id}`'s head_deputy (`{former_person}`) was cleared with no "
-                f'matching retirement_confirmations entry (entity_type="head_deputy", '
-                f'entity_id="{team_id}", former_person="{former_person}")'
-            )
-
-    return errors
+            all(confirmation.get(field) == value for field, value in expected.items())
+            for confirmation in confirmations
+        )
+    ]
 
 
 def main() -> int:
     if len(sys.argv) != 3:
         print("usage: check_retirement_confirmations.py <before.json> <after.json>", file=sys.stderr)
         return 2
-    with open(sys.argv[1]) as f:
-        before = json.load(f)
-    with open(sys.argv[2]) as f:
-        after = json.load(f)
-
-    errors = find_missing_confirmations(before, after)
+    errors = find_missing_confirmations(read_plan_file(sys.argv[1]), read_plan_file(sys.argv[2]))
     if errors:
         print("error: retirement(s) missing a required retirement_confirmations entry:", file=sys.stderr)
         for error in errors:

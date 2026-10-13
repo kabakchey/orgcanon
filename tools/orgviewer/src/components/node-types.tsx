@@ -1,7 +1,19 @@
+import { createContext, useContext } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Link } from "react-router-dom";
-import { DEFAULT_NODE_WIDTH, type LayoutDirection } from "./layout";
+import { DEFAULT_NODE_WIDTH, type LayoutDirection } from "../lib/layout/elk-layout";
+import {
+  DEPENDENCY_COUNTS,
+  type ComponentFlowNode,
+  type FlowNode,
+  type PersonFlowNode,
+  type TeamFlowNode,
+} from "../lib/relationships/flow-elements";
+import type { OrgData } from "../lib/orgapi/types";
+import { componentDependenciesHref, entityHref, orgTreeHref } from "../lib/routes";
 import { CopyButton } from "./copy-button";
+
+export const LayoutDirectionContext = createContext<LayoutDirection>("DOWN");
 
 interface NodeCardLine {
   text: string;
@@ -22,11 +34,7 @@ interface NodeCardCount {
   href?: string;
 }
 
-function directionFromData(data: NodeProps["data"]): LayoutDirection {
-  return data.direction === "RIGHT" ? "RIGHT" : "DOWN";
-}
-
-const ENTITY_KEY_BY_NODE_TYPE: Record<string, string> = {
+const ENTITY_KEY_BY_NODE_TYPE: Record<string, keyof OrgData> = {
   team: "teams",
   person: "people",
   component: "components",
@@ -37,7 +45,7 @@ function detailsHrefForNodeId(nodeId: string): string | undefined {
   const entityKey = nodeType ? ENTITY_KEY_BY_NODE_TYPE[nodeType] : undefined;
   const id = rest.join(":");
   if (!entityKey || !id) return undefined;
-  return `/entities/${entityKey}?id=${encodeURIComponent(id)}`;
+  return entityHref(entityKey, id);
 }
 
 function FoldToggle({
@@ -45,14 +53,13 @@ function FoldToggle({
   hiddenCount,
   directHiddenCount,
   onToggle,
-  direction,
 }: {
   folded: boolean;
   hiddenCount: number;
   directHiddenCount: number;
   onToggle: () => void;
-  direction: LayoutDirection;
 }) {
+  const direction = useContext(LayoutDirectionContext);
   const positionClass = direction === "RIGHT" ? "fold-toggle-right" : "fold-toggle-down";
   return (
     <button
@@ -74,18 +81,8 @@ function FoldToggle({
   );
 }
 
-function foldPropsFromData(data: NodeProps["data"]) {
-  return {
-    foldable: Boolean(data.foldable),
-    folded: Boolean(data.folded),
-    hiddenCount: typeof data.hiddenCount === "number" ? data.hiddenCount : 0,
-    directHiddenCount: typeof data.directHiddenCount === "number" ? data.directHiddenCount : 0,
-    onToggleFold: typeof data.onToggleFold === "function" ? (data.onToggleFold as () => void) : undefined,
-  };
-}
-
-function selectHandlerFromData(data: NodeProps["data"]): (() => void) | undefined {
-  return typeof data.onSelect === "function" ? (data.onSelect as () => void) : undefined;
+function cardControls({ selected, onSelect, foldable, folded, hiddenCount, directHiddenCount, onToggleFold }: FlowNode["data"]) {
+  return { selected, onSelect, foldable, folded, hiddenCount, directHiddenCount, onToggleFold };
 }
 
 function NodeCard({
@@ -96,7 +93,6 @@ function NodeCard({
   counts,
   badge,
   className,
-  direction,
   foldable,
   folded,
   hiddenCount,
@@ -114,7 +110,6 @@ function NodeCard({
   counts?: NodeCardCount[];
   badge?: string;
   className: string;
-  direction: LayoutDirection;
   foldable?: boolean;
   folded?: boolean;
   hiddenCount?: number;
@@ -125,7 +120,7 @@ function NodeCard({
   onSelect?: () => void;
   tooltip?: string;
 }) {
-  const isRight = direction === "RIGHT";
+  const isRight = useContext(LayoutDirectionContext) === "RIGHT";
   const targetPosition = isRight ? Position.Left : Position.Top;
   const sourcePosition = isRight ? Position.Right : Position.Bottom;
   const copyText = [
@@ -223,110 +218,75 @@ function NodeCard({
           hiddenCount={hiddenCount ?? 0}
           directHiddenCount={directHiddenCount ?? 0}
           onToggle={onToggleFold}
-          direction={direction}
         />
       )}
     </div>
   );
 }
 
-export function TeamNode({ id, data }: NodeProps) {
-  const direction = directionFromData(data);
-  const type = typeof data.type === "string" ? data.type : "";
-  const description = typeof data.description === "string" ? data.description : "";
-  const lines: NodeCardLine[] = [];
-  if (description) lines.push({ text: description, muted: true });
-
+export function TeamNode({ id, data }: NodeProps<TeamFlowNode>) {
   return (
     <NodeCard
-      primary={String(data.label ?? "")}
-      primaryHint={type || undefined}
-      documentationUrl={typeof data.documentationUrl === "string" ? data.documentationUrl : undefined}
-      lines={lines}
+      primary={data.label}
+      primaryHint={data.type || undefined}
+      documentationUrl={data.documentationUrl}
+      lines={data.description ? [{ text: data.description, muted: true }] : []}
       className="node-team"
-      direction={direction}
       detailsHref={detailsHrefForNodeId(id)}
-      selected={Boolean(data.selected)}
-      onSelect={selectHandlerFromData(data)}
-      tooltip={description || undefined}
-      {...foldPropsFromData(data)}
+      tooltip={data.description || undefined}
+      {...cardControls(data)}
     />
   );
 }
 
-export function PersonNode({ id, data }: NodeProps) {
-  const direction = directionFromData(data);
+export function PersonNode({ id, data }: NodeProps<PersonFlowNode>) {
   const lines: NodeCardLine[] = [];
-  if (typeof data.teamName === "string" && data.teamName) {
-    lines.push({ label: "Unit", text: data.teamName });
-  }
-  if (typeof data.primaryTitle === "string" && data.primaryTitle) {
-    lines.push({ label: "Role", text: data.primaryTitle });
-  }
-  const secondaryTitles = Array.isArray(data.secondaryTitles) ? (data.secondaryTitles as string[]) : [];
-  for (const title of secondaryTitles) {
+  if (data.teamName) lines.push({ label: "Unit", text: data.teamName });
+  if (data.primaryTitle) lines.push({ label: "Role", text: data.primaryTitle });
+  for (const title of data.secondaryTitles ?? []) {
     lines.push({ text: title, muted: true });
   }
-  if (typeof data.positionTitle === "string" && data.positionTitle) {
-    lines.push({ label: "Position", text: data.positionTitle });
-  }
+  if (data.positionTitle) lines.push({ label: "Position", text: data.positionTitle });
 
   return (
     <NodeCard
-      primary={String(data.label ?? "")}
-      documentationUrl={typeof data.documentationUrl === "string" ? data.documentationUrl : undefined}
+      primary={data.label}
+      documentationUrl={data.documentationUrl}
       lines={lines}
       className="node-person"
-      direction={direction}
       detailsHref={detailsHrefForNodeId(id)}
-      selected={Boolean(data.selected)}
-      onSelect={selectHandlerFromData(data)}
-      {...foldPropsFromData(data)}
+      {...cardControls(data)}
     />
   );
 }
 
-export function ComponentNode({ id, data }: NodeProps) {
-  const direction = directionFromData(data);
-  const type = typeof data.type === "string" ? data.type : "";
+export function ComponentNode({ id, data }: NodeProps<ComponentFlowNode>) {
   const lines: NodeCardLine[] = [];
-  if (type) lines.push({ text: type });
-
-  const ownerTeamId = typeof data.ownerTeamId === "string" ? data.ownerTeamId : undefined;
-  if (ownerTeamId) {
-    const ownerTeamName = typeof data.ownerTeamName === "string" ? data.ownerTeamName : ownerTeamId;
-    lines.push({ text: ownerTeamName, href: `/views/org-tree?teamId=${encodeURIComponent(ownerTeamId)}` });
+  if (data.type) lines.push({ text: data.type });
+  if (data.ownerTeamId) {
+    lines.push({
+      text: data.ownerTeamName ?? data.ownerTeamId,
+      href: orgTreeHref(data.ownerTeamId),
+    });
   }
 
   const componentId = id.startsWith("component:") ? id.slice("component:".length) : id;
-  const dependenciesHref = `/views/component-dependencies?componentId=${encodeURIComponent(componentId)}`;
-  // → direct dependencies, ⇒ all dependencies (direct + transitive), ← direct dependees,
-  // ⇐ all dependees (direct + transitive).
-  const countSpecs: Array<[string, string, unknown]> = [
-    ["→", "direct dependencies", data.directDependencies],
-    ["⇒", "all dependencies", data.transitiveDependencies],
-    ["←", "direct dependees", data.directDependees],
-    ["⇐", "all dependees", data.transitiveDependees],
-  ];
-  const counts: NodeCardCount[] = [];
-  for (const [icon, label, count] of countSpecs) {
-    if (typeof count !== "number") continue;
-    counts.push({ icon, count, label, href: dependenciesHref });
-  }
+  const dependenciesHref = componentDependenciesHref(componentId);
+  const counts = DEPENDENCY_COUNTS.flatMap(({ icon, label, field }) => {
+    const count = data[field];
+    return count === undefined ? [] : [{ icon, count, label, href: dependenciesHref }];
+  });
 
   return (
     <NodeCard
-      primary={String(data.label ?? "")}
-      documentationUrl={typeof data.documentationUrl === "string" ? data.documentationUrl : undefined}
+      primary={data.label}
+      documentationUrl={data.documentationUrl}
       lines={lines}
       counts={counts}
       badge={data.isEndUserFacing ? "end-user-facing" : undefined}
       className="node-component"
-      direction={direction}
       detailsHref={detailsHrefForNodeId(id)}
-      selected={Boolean(data.selected)}
-      onSelect={selectHandlerFromData(data)}
-      {...foldPropsFromData(data)}
+      {...cardControls(data)}
     />
   );
 }

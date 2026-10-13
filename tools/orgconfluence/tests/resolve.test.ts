@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import { OrgApiError, type OrgApi } from "../src/orgapi/client";
 import { resolvePosition } from "../src/position/resolve";
 import type { MacroConfig } from "../src/position/types";
-import { alice, bob, carol, platformHoldings, role } from "./fixtures";
+import { alice, bob, carol, fakeOrgApi, platformHoldings, role } from "./fixtures";
 
 const ORGVIEWER = "https://org.example.com/ui";
 
 function orgApi(overrides: Partial<OrgApi> = {}): OrgApi {
-  return {
-    listTeams: async () => [],
+  return fakeOrgApi({
     teamPeople: async (_team, position) =>
       platformHoldings.filter(
         (holding) =>
@@ -19,10 +18,8 @@ function orgApi(overrides: Partial<OrgApi> = {}): OrgApi {
               holding.authority_line_type === position.id))
       ),
     positionName: async () => "Platform Owner",
-    listEntities: async () => [],
-    getEntity: async () => null,
     ...overrides,
-  };
+  });
 }
 
 function config(overrides: Partial<MacroConfig> = {}): MacroConfig {

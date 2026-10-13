@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { authorityOverToFlow } from "../../../src/lib/relationships/authority-over-to-flow";
 import type { OrgData } from "../../../src/lib/orgapi/types";
-import { EDGE_STYLE } from "../../../src/components/edge-styles";
+import { EDGE_STYLE } from "../../../src/lib/relationships/edge-styles";
 import orgData from "../../fixtures/three-level-org-data.json";
 
 const {
@@ -74,7 +74,7 @@ describe("authorityOverToFlow", () => {
 
   it("labels an authority line's deputy edge with the line type's title plus ' Deputy'", () => {
     const withDeputy = {
-      "carol-lee-tech-lead": { ...authorityLines["carol-lee-tech-lead"], deputy: "bob-diaz", is_deputy_interim: false },
+      "carol-lee-tech-lead": { ...authorityLines["carol-lee-tech-lead"]!, deputy: "bob-diaz", is_deputy_interim: false },
     };
 
     const { edges } = authorityOverToFlow("platform-squad", teams, people, withDeputy, authorityLineTypes);
@@ -183,7 +183,7 @@ describe("authorityOverToFlow", () => {
         head_title: "Other Head",
         head_deputy: null,
         members: [
-          { person: "outside-holder", role: "eng", title: "Engineer", is_primary_team: true, deputy: null },
+          { person: "outside-holder", role: "eng", title: "Engineer", is_primary_team: true, is_interim: false, deputy: null, is_deputy_interim: false },
         ],
       },
     };

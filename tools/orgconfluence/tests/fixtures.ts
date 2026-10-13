@@ -1,4 +1,16 @@
-import type { Holding } from "../src/orgapi/client";
+import type { Holding, OrgApi } from "../src/orgapi/client";
+
+/** An orgapi that knows nothing; a test overrides the calls it cares about. */
+export function fakeOrgApi(overrides: Partial<OrgApi> = {}): OrgApi {
+  return {
+    listTeams: async () => [],
+    teamPeople: async () => null,
+    positionName: async () => null,
+    listEntities: async () => [],
+    getEntity: async () => null,
+    ...overrides,
+  };
+}
 
 function person(id: string, name: string, external_references: Record<string, string> = {}) {
   return { id, name, external_references };

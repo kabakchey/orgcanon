@@ -43,7 +43,7 @@ describe("labeled edges", () => {
       { id: "e1", source: "team:a", target: "person:b", type: "labeled", label: "CTO" },
     ];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test" />);
 
     expect(await screen.findByText("CTO")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Copy CTO" })).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe("labeled edges", () => {
       { id: "e1", source: "team:a", target: "person:b", type: "labeled", label: "CTO" },
     ];
 
-    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} />);
+    renderWithRouter(<GraphCanvas nodes={nodes} edges={edges} graphKey="test" />);
     await userEvent.click(await screen.findByRole("button", { name: "Copy CTO" }));
 
     expect(writeText).toHaveBeenCalledWith("CTO");

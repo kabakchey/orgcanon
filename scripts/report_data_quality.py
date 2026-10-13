@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Soft, non-blocking data-quality lints -- NOT part of docs/invariants.md's enforced
-invariants (see that file's new "Lints (non-blocking)" section, added alongside this script).
+"""Soft, non-blocking data-quality lints -- NOT part of docs/invariants.md's enforced invariants.
+
 Flags: orphaned people (not referenced as a team's head/head_deputy/member anywhere), teams
-with zero members, and empty-string external_references values. Reads `terraform show -json`
-from stdin, same pattern as check_team_hierarchy.py and report_reviewable_staleness.py.
-Always exits 0 -- these are lints, not hard failures.
+with zero members, and empty-string external_references values. Always exits 0 -- these are
+lints, not hard failures.
 
 Usage:
     terraform -chdir=org-model plan -input=false -out=tfplan
     terraform -chdir=org-model show -json tfplan | python3 scripts/report_data_quality.py
 """
 
-import json
 import sys
 from typing import Any
+
+from plan_json import output_value, read_stdin_plan
 
 
 def find_orphaned_people(people: dict[str, Any], teams: dict[str, Any]) -> list[str]:
@@ -41,19 +41,10 @@ def find_malformed_external_references(
 
 
 def main() -> int:
-    plan = json.load(sys.stdin)
-    outputs = plan.get("planned_values", {}).get("outputs")
-    if not outputs:
-        print(
-            "error: no planned_values.outputs found in the plan JSON -- did "
-            "org-model/outputs.tf or org-model/validated/outputs.tf get removed or renamed?",
-            file=sys.stderr,
-        )
-        return 1
-
-    people = outputs.get("people", {}).get("value", {}) or {}
-    teams = outputs.get("teams", {}).get("value", {}) or {}
-    components = outputs.get("components", {}).get("value", {}) or {}
+    plan = read_stdin_plan()
+    people = output_value(plan, "people")
+    teams = output_value(plan, "teams")
+    components = output_value(plan, "components")
 
     orphaned = find_orphaned_people(people, teams)
     empty_teams = find_empty_teams(teams)

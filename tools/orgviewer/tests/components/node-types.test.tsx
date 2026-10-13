@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { ReactFlowProvider } from "@xyflow/react";
-import { TeamNode, PersonNode, ComponentNode } from "../../src/components/node-types";
+import { TeamNode, PersonNode, ComponentNode, LayoutDirectionContext } from "../../src/components/node-types";
 
 function renderNode(ui: React.ReactElement) {
   return render(<ReactFlowProvider>{ui}</ReactFlowProvider>);
@@ -33,9 +33,11 @@ describe("node-types direction-aware handles", () => {
     expect(container.querySelector('[data-handlepos="right"]')).toBeNull();
   });
 
-  it("uses left/right handles when data.direction is RIGHT", () => {
+  it("uses left/right handles when the canvas direction is RIGHT", () => {
     const { container } = renderNode(
-      <TeamNode id="n2" type="team" data={{ label: "Team Right", direction: "RIGHT" }} {...baseProps} />
+      <LayoutDirectionContext.Provider value="RIGHT">
+        <TeamNode id="n2" type="team" data={{ label: "Team Right" }} {...baseProps} />
+      </LayoutDirectionContext.Provider>
     );
 
     expect(screen.getByText("Team Right")).toBeInTheDocument();
@@ -203,25 +205,6 @@ describe("PersonNode card content", () => {
     );
 
     expect(screen.getByText("Nobody")).toBeInTheDocument();
-  });
-
-  it("does not show a person's specialization on the card", () => {
-    renderNode(
-      <PersonNode
-        id="p5"
-        type="person"
-        data={{
-          label: "Carol Lee",
-          primaryTitle: "Backend Owner",
-          secondaryTitles: [],
-          specialization: "backend",
-        }}
-        {...baseProps}
-      />
-    );
-
-    expect(screen.queryByText("backend")).toBeNull();
-    expect(screen.queryByText(/specialization/i)).toBeNull();
   });
 
   it("links the card title to documentationUrl when present", () => {

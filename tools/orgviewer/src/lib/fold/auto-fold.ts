@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
-import { applyFold, foldableSourceIds, isFoldableEdgeId } from "../relationships/apply-fold";
+import { applyFold, foldableSourceIds, isFoldableEdgeId } from "./apply-fold";
 
 // How many nodes a view should show on a first-ever visit before auto-folding kicks in. Tune this
 // single constant to change the default density across every foldable view.

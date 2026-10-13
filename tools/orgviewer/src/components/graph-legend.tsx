@@ -1,6 +1,6 @@
 import { useId, type CSSProperties } from "react";
 import type { Edge } from "@xyflow/react";
-import { EDGE_STYLE } from "./edge-styles";
+import { EDGE_STYLE } from "../lib/relationships/edge-styles";
 import { useBooleanParam } from "../lib/use-boolean-param";
 
 type EdgeStyle = (typeof EDGE_STYLE)[keyof typeof EDGE_STYLE];

@@ -118,6 +118,9 @@ scripts/
   post_review_comment.py    posts/updates the PR-diff bot's single comment/note, identically
                              from both the GitHub Actions workflow and the GitLab CI job.
   orgcanon_cli.py                guided scaffolding for common edits (`add-person`, `add-team-member`)
+  plan_json.py              the one reader of `terraform show -json` plan documents the scripts
+                             above share.
+  tests/                    unit tests for the scripts (`make check-scripts`, part of `make check`).
                              — emits plain HCL, then runs `terraform fmt` on the touched file.
 examples/              three runnable worked examples (single-team, three-level-hierarchy,
                        complex-org) that source org-model/validated directly — the pattern a
@@ -277,23 +280,31 @@ just enough to know *why* the code looks the way it does before you change it.
   virtualenv, lockfile, and pinned Python version with no separate install step, the same
   self-contained-toolchain shape as Terraform's own version pinning.
 - **All dev/CI tooling installs route through one Dockerfile, Docker-first by default.** The
-  root [`Dockerfile`](../Dockerfile) is a single stage on `python:3.12-slim` whose `TOOLCHAINS`
-  build arg (any of `terraform`, `gh`, `uv`, `node`) picks what else gets installed. Its default
-  (`terraform gh uv`) builds `orgcanon:core`, covering validation and orgapi; `orgcanon:node`
-  (`terraform node`) covers orgviewer and orgconfluence, so Node/pnpm stay out of every
-  validation run. Every Makefile here (root and each `tools/*/`) runs its targets inside the matching
-  image by default
-  (`RUN_IN_DOCKER=1`), so Docker plus `make` are the only real local prerequisites — set
-  `RUN_IN_DOCKER=0` to fall back to native execution instead, which expects `terraform`/`uv`/pnpm
-  already on `PATH` rather than installing them. `check-orgapi`/`check-orgviewer`/`check-orgconfluence` are part of CI and pre-commit alongside
-  the Terraform checks, not left untested as before. Containers run as root rather than a
+  root [`Dockerfile`](../Dockerfile) is a single stage on `python:3.12-slim` that always
+  installs Terraform, `gh`, `uv`, and Node/pnpm, and builds orgviewer's bundle into the image —
+  one image, `orgcanon`, for validation and every tool, rather than a matrix of toolchain
+  combinations to keep straight. Its only switch is the `DEV_TOOLS` build arg: `0` leaves out
+  what only tests need (orgapi's `dev` dependency group, orgconfluence's dependencies) for an
+  image that just runs orgapi. Every Makefile here (root and each `tools/*/`) runs its targets
+  inside that image by default (`RUN_IN_DOCKER=1`), so Docker plus `make` are the only real
+  local prerequisites — set `RUN_IN_DOCKER=0` to fall back to native execution instead, which
+  expects `terraform`/`uv`/pnpm already on `PATH` rather than installing them. Building the
+  image is its own explicit step (`make docker-image`), never a side effect of another target:
+  a rebuild re-runs the bundle build on any source change, too slow to pay on every `make dev`
+  or `make test`, and source edits reach a running target through the bind-mounted working tree
+  anyway — only the Dockerfile, the dependency manifests, and the baked bundle need a rebuild
+  to take effect. `check-orgapi`/`check-orgviewer`/`check-orgconfluence` (each tool's own `make check`: every
+  kind of check it has, each also a target of its own) are part of CI and pre-commit alongside
+  the Terraform checks. Containers run as root rather than a
   host-UID-mapped user — dependency-linking tools like `pnpm install`'s bin-linking step
   `chmod` files unconditionally, which only the owner (root, baked in at image-build time) can
   do. This is harmless because nothing root writes ever lands on the host filesystem in the
   first place: dependency dirs (`.venv`, `node_modules`) and every target's own output
   (Terraform's plan/provider cache, pytest's cache, the orgviewer build) all live in named
   Docker volumes rather than the bind-mounted working tree, so there's no ownership to fix up
-  afterwards. CI's automated PR/MR-comment posting (`post-review-comment`) runs the same way, as
+  afterwards. Every `docker run` uses `--init` with `TINI_KILL_PROCESS_GROUP=true`: otherwise
+  the container's PID 1 is `make` itself, Docker delivers Ctrl+C to that one PID only, and a
+  `dev` target never stops. CI's automated PR/MR-comment posting (`post-review-comment`) runs the same way, as
   its own Docker-wrapped Makefile target reading the prior target's output off that same volume
   — nothing needs to reach the host at all.
 - **The schema-drift test round-trips real Terraform JSON, not a hand-written HCL parser.**
@@ -349,7 +360,13 @@ just enough to know *why* the code looks the way it does before you change it.
   token; whatever proxy exposes orgapi rejects requests without it. orgapi stays
   authentication-free for the callers on its own network — orgviewer runs in the browser and
   could not keep a secret anyway.
+- **orgapi can serve orgviewer's bundle itself, under `/ui`.** Pointing orgapi's `VIEWER_DIR`
+  at a built bundle mounts it at `/ui` next to orgapi's own root-level routes, so one process
+  on one origin is a complete deployment with no reverse proxy to stand up; the image built
+  from the root Dockerfile comes wired this way. It stays optional — unset, orgapi is API-only
+  — so orgapi never needs Node to run or test, and orgviewer remains a plain static bundle any
+  other host can serve. orgviewer's default orgapi URL is its own origin to match.
 - **orgapi allows CORS from any origin.** orgapi's base URL, from orgviewer's side, is a
-  user-editable field that can point at an instance on a different origin with no reverse proxy
-  unifying them (e.g. local dev). This is safe specifically because orgapi is read-only with no
+  user-editable field that can point at an instance on a different origin than the one serving
+  the SPA (e.g. local dev, with orgviewer on Vite's dev server). This is safe specifically because orgapi is read-only with no
   authentication or session state — there's no credential or cookie permissive CORS could leak.

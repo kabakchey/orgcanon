@@ -13,6 +13,8 @@
 # - `reviewable` is repeated inline per entity -- HCL has no type inheritance
 # - date fields are `string` (ISO-8601) -- HCL has no date primitive
 # - Person.line_manager doesn't exist here -- it's derived, not stored
+# - a null guard is written `x == null ? true : f(x)`, never `x == null || f(x)`: `&&`/`||` are
+#   not lazy in HCL, so f(x) would still be evaluated (and error) on a null x
 #
 # title/level fields (formal_position_types.title/level, authority_line_types.title,
 # team_types.title, component_types.title) stay freeform/unenforced on purpose -- a hard enum
@@ -35,7 +37,7 @@ variable "formal_position_types" {
   default = {}
 
   validation {
-    condition     = alltrue([for id in keys(var.formal_position_types) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.formal_position_types) : can(regex(local.entity_id_pattern, id))])
     error_message = "formal_position_types keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -70,7 +72,7 @@ variable "roles" {
   }
 
   validation {
-    condition     = alltrue([for id in keys(var.roles) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.roles) : can(regex(local.entity_id_pattern, id))])
     error_message = "roles keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -137,7 +139,7 @@ variable "people" {
   }
 
   validation {
-    condition     = alltrue([for id in keys(var.people) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.people) : can(regex(local.entity_id_pattern, id))])
     error_message = "people keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -179,8 +181,7 @@ variable "people" {
   validation {
     # HCL's <=/>= only work on numbers; ISO-8601 dates sort correctly as strings but `<=` on
     # strings is a hard error (confirmed via `terraform plan`), hence timecmp() + the
-    # "${...}T00:00:00Z" suffix. `? :` instead of `||`: `||` isn't lazy in HCL, so
-    # `pos.end_date == null || timecmp(...)` would still evaluate timecmp() on a null end_date.
+    # "${...}T00:00:00Z" suffix.
     condition = alltrue(flatten([
       for id, p in var.people : [
         for pos in p.positions : pos.end_date == null ? true : timecmp("${pos.start_date}T00:00:00Z", "${pos.end_date}T00:00:00Z") <= 0
@@ -223,7 +224,7 @@ variable "people" {
   validation {
     # Can't use local.departed_person_ids here -- it's derived from var.people, so referencing
     # it from inside people's own validation is a real cycle (confirmed by testing); the
-    # predicate is inlined instead. `? :` not `||`, for the same laziness reason as above.
+    # predicate is inlined instead.
     condition = alltrue([
       for id, p in var.people : anytrue([
         for pos in var.people[p.reviewable.owner].positions :
@@ -272,7 +273,7 @@ variable "authority_line_types" {
   default = {}
 
   validation {
-    condition     = alltrue([for id in keys(var.authority_line_types) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.authority_line_types) : can(regex(local.entity_id_pattern, id))])
     error_message = "authority_line_types keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -333,15 +334,11 @@ variable "authority_lines" {
   }
 
   validation {
-    # `? :` rather than `a.deputy == null || contains(...)`: contains() errors on a null
-    # argument -- see the timecmp comment on people[*].positions[*] above for why `||` doesn't
-    # short-circuit around that.
     condition     = alltrue([for id, a in var.authority_lines : a.deputy == null ? true : contains(keys(var.people), a.deputy)])
     error_message = "authority_lines.deputy must reference an existing key in var.people, if set."
   }
 
   validation {
-    # `? :` rather than `a.deputy == null || !contains(...)` -- same laziness issue as above.
     condition     = alltrue([for id, a in var.authority_lines : a.deputy == null ? true : !contains(local.departed_person_ids, a.deputy)])
     error_message = "authority_lines.deputy must reference a person who has not departed, if set."
   }
@@ -367,7 +364,7 @@ variable "authority_lines" {
   }
 
   validation {
-    condition     = alltrue([for id in keys(var.authority_lines) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.authority_lines) : can(regex(local.entity_id_pattern, id))])
     error_message = "authority_lines keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -382,8 +379,6 @@ variable "authority_lines" {
   }
 
   validation {
-    # See the equivalent check on people[*].positions[*] above for why timecmp() + `? :`
-    # (rather than a bare <= combined with ||) is needed here.
     condition     = alltrue([for id, a in var.authority_lines : a.end_date == null ? true : timecmp("${a.start_date}T00:00:00Z", "${a.end_date}T00:00:00Z") <= 0])
     error_message = "authority_lines[*].start_date must be on or before end_date, when end_date is set."
   }
@@ -402,11 +397,6 @@ variable "authority_lines" {
     condition     = alltrue([for id, a in var.authority_lines : !contains(local.departed_person_ids, a.reviewable.owner)])
     error_message = "authority_lines[*].reviewable.owner must reference a person who has not departed."
   }
-
-  # teams.parent_team acyclicity is NOT checked here -- HCL's `for` can't do unbounded
-  # recursion, so no fixed-depth check rules out a cycle at every depth. Enforced instead by a
-  # DFS in scripts/check_team_hierarchy.py against `terraform show -json` output -- the one
-  # invariant here not enforced by a plain `validation` block.
 }
 
 variable "team_types" {
@@ -424,7 +414,7 @@ variable "team_types" {
   default = {}
 
   validation {
-    condition     = alltrue([for id in keys(var.team_types) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.team_types) : can(regex(local.entity_id_pattern, id))])
     error_message = "team_types keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -501,10 +491,14 @@ variable "teams" {
   default = {}
 
   validation {
-    # `? :` rather than bare `|| contains(...)` -- see the deputy check above.
     condition     = alltrue([for id, t in var.teams : t.parent_team == null ? true : contains(keys(var.teams), t.parent_team)])
     error_message = "teams.parent_team must reference an existing key in var.teams, if set."
   }
+
+  # parent_team acyclicity is NOT checked here -- HCL's `for` can't do unbounded recursion, so
+  # no fixed-depth check rules out a cycle at every depth. Enforced instead by a DFS in
+  # scripts/check_team_hierarchy.py against `terraform show -json` output -- the one invariant
+  # here not enforced by a plain `validation` block.
 
   validation {
     # Exactly one root guards against a disconnected second tree (usually a missing
@@ -525,13 +519,11 @@ variable "teams" {
   }
 
   validation {
-    # `? :` rather than bare `|| contains(...)` -- see the deputy check above.
     condition     = alltrue([for id, t in var.teams : t.head_deputy == null ? true : contains(keys(var.people), t.head_deputy)])
     error_message = "teams.head_deputy must reference an existing key in var.people, if set."
   }
 
   validation {
-    # `? :` rather than bare `|| !contains(...)` -- see the deputy check above.
     condition     = alltrue([for id, t in var.teams : t.head_deputy == null ? true : !contains(local.departed_person_ids, t.head_deputy)])
     error_message = "teams.head_deputy must reference a person who has not departed, if set."
   }
@@ -555,7 +547,6 @@ variable "teams" {
   }
 
   validation {
-    # `? :` rather than bare `|| contains(...)` -- see the deputy check above.
     condition = alltrue(flatten([
       for id, t in var.teams : [
         for m in t.members : m.deputy == null ? true : contains(keys(var.people), m.deputy)
@@ -565,7 +556,6 @@ variable "teams" {
   }
 
   validation {
-    # `? :` rather than bare `|| !contains(...)` -- see the deputy check above.
     condition = alltrue(flatten([
       for id, t in var.teams : [
         for m in t.members : m.deputy == null ? true : !contains(local.departed_person_ids, m.deputy)
@@ -665,11 +655,8 @@ variable "teams" {
     error_message = "components.team must reference an existing key in var.teams."
   }
 
-  # components.dependency_components is NOT checked for cycles -- unlike teams.parent_team, a
-  # component dependency graph may legitimately contain cycles (real circular service deps).
-
   validation {
-    condition     = alltrue([for id in keys(var.teams) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.teams) : can(regex(local.entity_id_pattern, id))])
     error_message = "teams keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -712,7 +699,7 @@ variable "component_types" {
   default = {}
 
   validation {
-    condition     = alltrue([for id in keys(var.component_types) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.component_types) : can(regex(local.entity_id_pattern, id))])
     error_message = "component_types keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -754,9 +741,9 @@ variable "components" {
   }))
   default = {}
 
+  # dependency_components is NOT checked for cycles -- unlike teams.parent_team, a component
+  # dependency graph may legitimately contain cycles (real circular service deps).
   validation {
-    # components.team must reference an existing team -- enforced on var.teams instead, to
-    # avoid a validation dependency cycle (teams -> roles -> components -> teams).
     condition = alltrue(flatten([
       for id, c in var.components : [
         for d in c.dependency_components : contains(keys(var.components), d)
@@ -766,7 +753,7 @@ variable "components" {
   }
 
   validation {
-    condition     = alltrue([for id in keys(var.components) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.components) : can(regex(local.entity_id_pattern, id))])
     error_message = "components keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -812,7 +799,7 @@ variable "retirement_confirmations" {
   default = {}
 
   validation {
-    condition     = alltrue([for id in keys(var.retirement_confirmations) : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", id))])
+    condition     = alltrue([for id in keys(var.retirement_confirmations) : can(regex(local.entity_id_pattern, id))])
     error_message = "retirement_confirmations keys must be lowercase kebab-case Entity IDs."
   }
 
@@ -827,9 +814,6 @@ variable "retirement_confirmations" {
   }
 
   validation {
-    # `? :` rather than `r.disposition == "reassigned" && ... || ...`: neither `&&` nor `||` is
-    # lazy in HCL, so a bare boolean form fails whenever reassigned_to is null even when the
-    # null check alone decides the result.
     condition = alltrue([
       for id, r in var.retirement_confirmations :
       r.disposition == "reassigned" ? r.reassigned_to != null : r.reassigned_to == null

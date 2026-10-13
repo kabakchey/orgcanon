@@ -2,14 +2,15 @@ import { fetchEntities, fetchEntityById, type EntityFilters } from "./client";
 import type { OrgData } from "./types";
 
 const cache = new Map<string, Promise<unknown>>();
-const byIdCache = new Map<string, Promise<unknown>>();
 
-function cacheKey<K extends keyof OrgData>(
-  entityKey: K,
-  baseUrl: string,
-  filters?: EntityFilters
-): string {
-  return JSON.stringify([entityKey, baseUrl, filters ?? {}]);
+function cached<T>(key: unknown[], load: () => Promise<T>): Promise<T> {
+  const cacheKey = JSON.stringify(key);
+  let entry = cache.get(cacheKey);
+  if (!entry) {
+    entry = load();
+    cache.set(cacheKey, entry);
+  }
+  return entry as Promise<T>;
 }
 
 export function getCachedEntities<K extends keyof OrgData>(
@@ -17,13 +18,7 @@ export function getCachedEntities<K extends keyof OrgData>(
   baseUrl: string,
   filters?: EntityFilters
 ): Promise<OrgData[K]> {
-  const key = cacheKey(entityKey, baseUrl, filters);
-  let entry = cache.get(key);
-  if (!entry) {
-    entry = fetchEntities(entityKey, baseUrl, filters);
-    cache.set(key, entry);
-  }
-  return entry as Promise<OrgData[K]>;
+  return cached(["all", entityKey, baseUrl, filters ?? {}], () => fetchEntities(entityKey, baseUrl, filters));
 }
 
 export function getCachedEntityById<K extends keyof OrgData>(
@@ -31,13 +26,7 @@ export function getCachedEntityById<K extends keyof OrgData>(
   baseUrl: string,
   id: string
 ): Promise<OrgData[K][string] | undefined> {
-  const key = JSON.stringify([entityKey, baseUrl, id]);
-  let entry = byIdCache.get(key);
-  if (!entry) {
-    entry = fetchEntityById(entityKey, baseUrl, id);
-    byIdCache.set(key, entry);
-  }
-  return entry as Promise<OrgData[K][string] | undefined>;
+  return cached(["one", entityKey, baseUrl, id], () => fetchEntityById(entityKey, baseUrl, id));
 }
 
 // orgapi's data is immutable for a running instance's lifetime (see orgapi's own README), so
@@ -46,5 +35,4 @@ export function getCachedEntityById<K extends keyof OrgData>(
 // unrelated to what's already cached.
 export function clearEntityCache(): void {
   cache.clear();
-  byIdCache.clear();
 }

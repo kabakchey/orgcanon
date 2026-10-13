@@ -1,7 +1,7 @@
 [project]
 name = "orgapi"
 version = "0.1.0"
-description = "HTTP API over the org-as-code data model (fetch by id, fetch-all, filter by basic attrs). No UI, no auth."
+description = "HTTP API over the org-as-code data model (fetch by id, fetch-all, filter by basic attrs); optionally serves orgviewer's built bundle. No auth."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

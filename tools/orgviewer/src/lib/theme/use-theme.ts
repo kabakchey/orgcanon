@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { resolveInitialTheme, setStoredTheme, type Theme } from "./config";
 
-export interface UseThemeResult {
+interface UseThemeResult {
   theme: Theme;
   toggleTheme: () => void;
 }

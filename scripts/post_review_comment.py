@@ -1,29 +1,18 @@
 #!/usr/bin/env python3
-"""Posts (or updates) a single informational comment/note on a PR/MR containing the org-data
-diff summary produced by `make diff-summary` (scripts/summarize_org_diff.py). Called
-identically from .github/workflows/pr-diff-summary.yml (--platform github) and
-.gitlab-ci.yml's mr-diff-summary job (--platform gitlab).
+"""Posts, or updates in place, one PR/MR comment carrying the `make diff-summary` output.
 
-GitHub: shells out to `gh pr comment --edit-last --create-if-none`, which already
-deduplicates by editing the bot's own last comment instead of spamming a new one per push. The
-posted body is prefixed with MARKER too (harmless -- it's an HTML comment, invisible when
-rendered), purely for consistency with the GitLab path; `--edit-last` itself doesn't need it.
-Needs GH_TOKEN in the environment (GitHub Actions' automatic `github.token` works) plus
---repo/--pr-number -- GitHub Actions only exposes those through `${{ }}` expression context,
-not as plain env vars, so the calling workflow passes them as CLI args.
+GitHub: `gh pr comment --edit-last --create-if-none` already edits the bot's own last comment
+instead of adding one per push. Needs GH_TOKEN in the environment, plus --repo/--pr-number --
+GitHub Actions only exposes those through `${{ }}` expression context, not as plain env vars.
 
-GitLab: no CLI ships this comment-editing behavior, so it's reimplemented directly against the
-MR Notes REST API (https://docs.gitlab.com/ee/api/notes.html): fetch the token's own user id
-(GET /user), list existing notes, find one whose body starts with MARKER *and* was authored by
-that same user id (so another MR participant can't hijack the bot's note by starting their own
-comment with the marker), PUT to update it if found, POST a new one otherwise. Reads
-CI_API_V4_URL/CI_PROJECT_ID/CI_MERGE_REQUEST_IID -- all auto-provided by GitLab CI in merge
-request pipelines -- and requires a GITLAB_MR_TOKEN CI/CD variable (a project access token,
-`api` scope) the adopter creates once; GitLab's built-in CI_JOB_TOKEN has known Notes-API
-permission gaps, so this repo deliberately requires the explicit token instead. See README's
-"Contributing" section. CI_API_V4_URL must be `https://` -- Python's urllib forwards the
-PRIVATE-TOKEN header across redirects (including cross-host ones), so an `http://` URL would
-put the token on the wire in cleartext.
+GitLab: no CLI ships that behavior, so it is reimplemented against the MR Notes REST API
+(https://docs.gitlab.com/ee/api/notes.html). The note to update must start with MARKER *and* be
+authored by the token's own user, so another MR participant can't hijack it by starting their
+own comment with the marker. Reads CI_API_V4_URL/CI_PROJECT_ID/CI_MERGE_REQUEST_IID (provided
+by GitLab CI in merge request pipelines) and GITLAB_MR_TOKEN (a project access token, `api`
+scope) -- GitLab's built-in CI_JOB_TOKEN has known Notes-API permission gaps. CI_API_V4_URL
+must be `https://`: Python's urllib forwards the PRIVATE-TOKEN header across redirects
+(including cross-host ones), so an `http://` URL would put the token on the wire in cleartext.
 
 Usage:
     python3 scripts/post_review_comment.py --platform github --repo OWNER/REPO --pr-number N summary.md
@@ -41,9 +30,9 @@ import urllib.request
 MARKER = "<!-- orgcanon-org-diff-summary -->"
 
 
-def find_existing_note_id(notes: list[dict], marker: str, author_id: int) -> int | None:
+def find_existing_note_id(notes: list[dict], author_id: int) -> int | None:
     for note in notes:
-        if note.get("body", "").startswith(marker) and note.get("author", {}).get("id") == author_id:
+        if note.get("body", "").startswith(MARKER) and note.get("author", {}).get("id") == author_id:
             return note["id"]
     return None
 
@@ -84,7 +73,7 @@ def post_gitlab(api_url: str, project_id: str, mr_iid: str, token: str, body: st
     marked_body = f"{MARKER}\n{body}"
     current_user = _gitlab_request(f"{api_url}/user", token)
     notes = _gitlab_request(f"{base}?per_page=100&order_by=created_at&sort=desc", token)
-    existing_id = find_existing_note_id(notes, MARKER, author_id=current_user["id"])
+    existing_id = find_existing_note_id(notes, author_id=current_user["id"])
     if existing_id is not None:
         _gitlab_request(f"{base}/{existing_id}", token, method="PUT", data={"body": marked_body})
     else:

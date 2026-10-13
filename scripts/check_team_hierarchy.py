@@ -4,10 +4,9 @@
 HCL's `for` expressions can't do unbounded recursion, so org-model/validated/ can't check this
 itself. This script runs a real DFS over the hierarchy instead.
 
-Deliberately duplicated in tools/orgapi/src/orgapi/team_hierarchy.py (same algorithm, same
-signature) so orgapi's own load path can run the same check without a shared import path
-between this unpackaged, stdlib-only directory and orgapi's uv-managed package -- see that
-file's docstring.
+Duplicated in tools/orgapi/src/orgapi/team_hierarchy.py (same algorithm, same signature): no
+import path is shared between this unpackaged, stdlib-only directory and orgapi's uv-managed
+package.
 
 Reads `terraform show -json` output from stdin -- never parses .tf files directly, and never
 reimplements org-model/main.tf's merge() logic; it only trusts what Terraform itself already
@@ -18,8 +17,9 @@ Usage:
     terraform -chdir=org-model show -json tfplan | python3 scripts/check_team_hierarchy.py
 """
 
-import json
 import sys
+
+from plan_json import read_stdin_plan
 
 WHITE, GRAY, BLACK = 0, 1, 2
 
@@ -53,16 +53,15 @@ def find_cycle(teams: dict) -> list[str] | None:
 
 
 def main() -> int:
-    plan = json.load(sys.stdin)
-    try:
-        teams = plan["planned_values"]["outputs"]["teams"]["value"]
-    except KeyError:
+    outputs = read_stdin_plan()["planned_values"]["outputs"]
+    if "teams" not in outputs:
         print(
             "error: no planned_values.outputs.teams found in the plan JSON -- did "
             "org-model/outputs.tf and org-model/validated/outputs.tf get removed or renamed?",
             file=sys.stderr,
         )
         return 1
+    teams = outputs["teams"]["value"]
 
     cycle = find_cycle(teams)
     if cycle:

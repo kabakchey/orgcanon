@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Viewport } from "@xyflow/react";
+import { useUpdateSearchParams } from "./use-update-search-params";
 
 function parseCoordinate(raw: string | null): number | null {
   if (raw === null || raw.trim() === "") return null;
@@ -9,7 +10,9 @@ function parseCoordinate(raw: string | null): number | null {
 }
 
 export function useCameraParam(): [Viewport | null, (camera: Viewport) => void] {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  // Replace: the camera settles after every pan/zoom, which would otherwise flood Back.
+  const update = useUpdateSearchParams(true);
   const zoom = parseCoordinate(searchParams.get("zoom"));
   const x = parseCoordinate(searchParams.get("x"));
   const y = parseCoordinate(searchParams.get("y"));
@@ -19,20 +22,13 @@ export function useCameraParam(): [Viewport | null, (camera: Viewport) => void] 
   );
 
   const setCamera = useCallback(
-    (next: Viewport) => {
-      // Replace: the camera settles after every pan/zoom, which would otherwise flood Back.
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev);
-          params.set("zoom", String(Number(next.zoom.toFixed(3))));
-          params.set("x", String(Math.round(next.x)));
-          params.set("y", String(Math.round(next.y)));
-          return params;
-        },
-        { replace: true }
-      );
-    },
-    [setSearchParams]
+    (next: Viewport) =>
+      update({
+        zoom: String(Number(next.zoom.toFixed(3))),
+        x: String(Math.round(next.x)),
+        y: String(Math.round(next.y)),
+      }),
+    [update]
   );
 
   return [camera, setCamera];

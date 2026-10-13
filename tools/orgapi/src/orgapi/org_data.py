@@ -1,38 +1,24 @@
-"""Loads the org-as-code data model from Terraform, once, by trusting Terraform's own
-evaluated output (`terraform plan` + `apply` + `show -json`) rather than parsing .tf files --
-same "don't build a second parser for Terraform's own format" principle as the main repo's own
-validation and once-at-startup loading, applied independently here in Python for orgapi's own
-use.
+"""Loads the org-as-code data model from Terraform, once.
+
+Trusts Terraform's own evaluated output (`terraform plan` + `apply` + `show -json`) rather than
+parsing .tf files -- no second parser for Terraform's own format.
 
 `apply` runs (against a state file inside the same ephemeral tempdir as the plan, never a real
 backend -- there's no backend/provider block anywhere in this schema) because `plan` alone does
 not evaluate a `validation` condition that depends on `timestamp()`; Terraform defers those to
-`apply`. The departed-person checks are the only such conditions today. See the
-main repo's Makefile for the same fix applied to `make check`."""
+`apply`. The departed-person checks are the only such conditions today.
+"""
 
 from __future__ import annotations
 
 import json
 import subprocess
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
 from .team_hierarchy import find_cycle
-
-ORG_DATA_OUTPUT_KEYS = (
-    "formal_position_types",
-    "authority_line_types",
-    "team_types",
-    "component_types",
-    "people",
-    "roles",
-    "teams",
-    "authority_lines",
-    "components",
-)
-
 
 @dataclass(frozen=True)
 class OrgData:
@@ -47,52 +33,28 @@ class OrgData:
     components: dict[str, Any]
 
 
+ORG_DATA_OUTPUT_KEYS = tuple(field.name for field in fields(OrgData))
+
+
 def load_org_data(data_dir: str, terraform_bin: str) -> OrgData:
+    def terraform(*args: str) -> str:
+        return subprocess.run(
+            [terraform_bin, f"-chdir={data_dir}", *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
     with tempfile.TemporaryDirectory(prefix="orgapi-tfplan-") as plan_dir:
         plan_file = str(Path(plan_dir) / "tfplan")
-        state_file = str(Path(plan_dir) / "tfstate")
+        state = f"-state={Path(plan_dir) / 'tfstate'}"
 
-        subprocess.run(
-            [terraform_bin, f"-chdir={data_dir}", "init", "-backend=false", "-input=false"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            [
-                terraform_bin,
-                f"-chdir={data_dir}",
-                "plan",
-                "-input=false",
-                f"-state={state_file}",
-                f"-out={plan_file}",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            [
-                terraform_bin,
-                f"-chdir={data_dir}",
-                "apply",
-                "-input=false",
-                "-auto-approve",
-                f"-state={state_file}",
-                plan_file,
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        show_result = subprocess.run(
-            [terraform_bin, f"-chdir={data_dir}", "show", "-json", plan_file],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        terraform("init", "-backend=false", "-input=false")
+        terraform("plan", "-input=false", state, f"-out={plan_file}")
+        terraform("apply", "-input=false", "-auto-approve", state, plan_file)
+        plan_json = terraform("show", "-json", plan_file)
 
-    org_data = _parse_org_data(json.loads(show_result.stdout))
+    org_data = _parse_org_data(json.loads(plan_json))
 
     cycle = find_cycle(org_data.teams)
     if cycle:

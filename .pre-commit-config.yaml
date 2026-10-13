@@ -19,6 +19,13 @@ repos:
         files: \.tf$
         pass_filenames: false
 
+      - id: terraform-apply
+        name: terraform apply (departed-person validations)
+        entry: make apply
+        language: system
+        files: \.tf$
+        pass_filenames: false
+
       - id: team-hierarchy-cycle-check
         name: terraform plan + team hierarchy cycle check
         entry: make check-team-hierarchy
@@ -42,6 +49,13 @@ repos:
         files: \.tf$
         pass_filenames: false
 
+      - id: scripts-test
+        name: scripts/ unit tests
+        entry: make check-scripts
+        language: system
+        files: ^scripts/
+        pass_filenames: false
+
       # Separate from the hooks above on purpose -- delete this entry if examples/ goes away.
       - id: terraform-examples-check
         name: terraform validate examples/
@@ -52,7 +66,7 @@ repos:
 
       # Same reasoning as terraform-examples-check -- delete this entry if tools/orgapi goes away.
       - id: orgapi-test
-        name: orgapi tests
+        name: orgapi checks
         entry: make check-orgapi
         language: system
         files: ^tools/orgapi/
@@ -60,7 +74,7 @@ repos:
 
       # Same reasoning as terraform-examples-check -- delete this entry if tools/orgviewer goes away.
       - id: orgviewer-test
-        name: orgviewer tests
+        name: orgviewer checks
         entry: make check-orgviewer
         language: system
         files: ^tools/orgviewer/
@@ -68,7 +82,7 @@ repos:
 
       # Same reasoning as terraform-examples-check -- delete this entry if tools/orgconfluence goes away.
       - id: orgconfluence-test
-        name: orgconfluence tests
+        name: orgconfluence checks
         entry: make check-orgconfluence
         language: system
         files: ^tools/orgconfluence/

@@ -1,28 +1,21 @@
 #!/usr/bin/env python3
-"""Compares two `terraform show -json` plan documents (before/after) for org-model/ and
-prints a plain-English Markdown summary of what changed. Used by the PR-diff bot workflow
-(.github/workflows/pr-diff-summary.yml). Deliberately narrow in scope -- primary-team moves,
-component dependency changes, and team head/head-deputy changes only, deliberately, as a first
-version -- other kinds of changes are out of scope for now.
+"""Prints a plain-English Markdown summary of what changed between two plans of org-model/.
+
+Takes two `terraform show -json` plan documents (before/after). Narrow in scope: primary-team
+moves, component dependency changes, and team head/head-deputy changes only.
 
 Usage:
     python3 scripts/summarize_org_diff.py before.json after.json
 """
 
-import json
 import sys
 from typing import Any
 
-
-def _outputs_value(plan_json: dict[str, Any], key: str) -> dict[str, Any]:
-    return (
-        plan_json.get("planned_values", {}).get("outputs", {}).get(key, {}).get("value", {})
-        or {}
-    )
+from plan_json import output_value, read_plan_file
 
 
 def find_primary_team(teams: dict[str, Any]) -> dict[str, str]:
-    """person_id -> team_id, for whichever team that person is the is_primary_team member of."""
+    """Map person_id to the team that person is the is_primary_team member of."""
     result: dict[str, str] = {}
     for team_id, team in teams.items():
         for member in team.get("members", []):
@@ -76,11 +69,9 @@ def summarize_head_changes(before_teams: dict[str, Any], after_teams: dict[str, 
 
 
 def summarize(before: dict[str, Any], after: dict[str, Any]) -> str:
-    before_teams, after_teams = _outputs_value(before, "teams"), _outputs_value(after, "teams")
-    before_components, after_components = (
-        _outputs_value(before, "components"),
-        _outputs_value(after, "components"),
-    )
+    before_teams, after_teams = output_value(before, "teams"), output_value(after, "teams")
+    before_components = output_value(before, "components")
+    after_components = output_value(after, "components")
     lines = [
         *summarize_primary_team_moves(before_teams, after_teams),
         *summarize_component_dependency_changes(before_components, after_components),
@@ -95,11 +86,7 @@ def main() -> int:
     if len(sys.argv) != 3:
         print("usage: summarize_org_diff.py <before.json> <after.json>", file=sys.stderr)
         return 2
-    with open(sys.argv[1]) as f:
-        before = json.load(f)
-    with open(sys.argv[2]) as f:
-        after = json.load(f)
-    print(summarize(before, after))
+    print(summarize(read_plan_file(sys.argv[1]), read_plan_file(sys.argv[2])))
     return 0
 
 

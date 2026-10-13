@@ -34,7 +34,7 @@ describe("deriveLineManager", () => {
   it("rule 2 uses the head's primary team when they also head a non-primary child team listed first", () => {
     const multiHeadTeams = {
       "a-interim-squad": {
-        ...teams["platform-squad"],
+        ...teams["platform-squad"]!,
         parent_team: "r-and-d",
         head: "vp-eng",
         head_deputy: null,
@@ -50,7 +50,7 @@ describe("deriveLineManager", () => {
   it("rule 3 uses the deputy's primary team when they also deputize a non-primary team listed first", () => {
     const multiDeputyTeams = {
       "a-interim-squad": {
-        ...teams["platform-squad"],
+        ...teams["platform-squad"]!,
         parent_team: "r-and-d",
         head: "vp-eng",
         head_deputy: "bob-diaz",

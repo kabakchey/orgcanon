@@ -4,90 +4,63 @@ import { getCachedEntities, getCachedEntityById } from "./cache";
 import { getOrgapiBaseUrl } from "./config";
 import type { OrgData } from "./types";
 
-export interface UseEntitiesResult<K extends keyof OrgData> {
-  data: OrgData[K] | undefined;
+interface Loaded<T> {
+  data: T | undefined;
   error: unknown;
+  settled: boolean;
 }
 
-export interface UseEntitiesOptions {
-  // Skip fetching entirely, e.g. team-components-view has nothing to fetch until a team is
-  // picked -- there's no "all components for no team" query to make.
-  enabled?: boolean;
+const LOADING = { data: undefined, error: undefined, settled: false };
+
+// Re-runs `load` whenever `key` changes; callers build a fresh `load` on every render.
+function useLoaded<T>(key: string, load: () => Promise<T>): Loaded<T> {
+  const [state, setState] = useState<Loaded<T>>(LOADING);
+
+  useEffect(() => {
+    setState(LOADING);
+    let cancelled = false;
+    load().then(
+      (data) => {
+        if (!cancelled) setState({ data, error: undefined, settled: true });
+      },
+      (error: unknown) => {
+        if (!cancelled) setState({ data: undefined, error, settled: true });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return state;
 }
 
 export function useEntities<K extends keyof OrgData>(
   entityKey: K,
-  filters?: EntityFilters,
-  options?: UseEntitiesOptions
-): UseEntitiesResult<K> {
-  const enabled = options?.enabled ?? true;
-  const [data, setData] = useState<OrgData[K] | undefined>(undefined);
-  const [error, setError] = useState<unknown>(undefined);
-  const filtersKey = JSON.stringify(filters ?? {});
-
-  useEffect(() => {
-    setData(undefined);
-    setError(undefined);
-    if (!enabled) return;
-
-    let cancelled = false;
-    getCachedEntities(entityKey, getOrgapiBaseUrl(), filters).then(
-      (result) => {
-        if (!cancelled) setData(result);
-      },
-      (err: unknown) => {
-        if (!cancelled) setError(err);
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-    // filters is intentionally tracked via filtersKey (a stable string), not the object
-    // reference, since views construct a fresh filters object on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityKey, filtersKey, enabled]);
-
-  return { data, error };
+  filters?: EntityFilters
+): { data: OrgData[K] | undefined; error: unknown } {
+  return useLoaded(JSON.stringify([entityKey, filters ?? {}]), () =>
+    getCachedEntities(entityKey, getOrgapiBaseUrl(), filters)
+  );
 }
 
-export interface UseEntityByIdResult<K extends keyof OrgData> {
-  data: OrgData[K][string] | undefined;
-  notFound: boolean;
-  error: unknown;
+// Several whole collections as one unit: `data` stays undefined until every one has loaded.
+export function useOrgData<K extends keyof OrgData>(
+  keys: readonly K[]
+): { data: Pick<OrgData, K> | undefined; error: unknown } {
+  return useLoaded(keys.join(","), async () => {
+    const collections = await Promise.all(keys.map((key) => getCachedEntities(key, getOrgapiBaseUrl())));
+    return Object.fromEntries(keys.map((key, index) => [key, collections[index]])) as unknown as Pick<OrgData, K>;
+  });
 }
 
 export function useEntityById<K extends keyof OrgData>(
   entityKey: K,
-  id: string | undefined
-): UseEntityByIdResult<K> {
-  const [data, setData] = useState<OrgData[K][string] | undefined>(undefined);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState<unknown>(undefined);
-
-  useEffect(() => {
-    setData(undefined);
-    setNotFound(false);
-    setError(undefined);
-    if (!id) return;
-
-    let cancelled = false;
-    getCachedEntityById(entityKey, getOrgapiBaseUrl(), id).then(
-      (result) => {
-        if (cancelled) return;
-        if (result === undefined) {
-          setNotFound(true);
-        } else {
-          setData(result);
-        }
-      },
-      (err: unknown) => {
-        if (!cancelled) setError(err);
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [entityKey, id]);
-
-  return { data, notFound, error };
+  id: string
+): { data: OrgData[K][string] | undefined; notFound: boolean; error: unknown } {
+  const { data, error, settled } = useLoaded(JSON.stringify([entityKey, id]), () =>
+    getCachedEntityById(entityKey, getOrgapiBaseUrl(), id)
+  );
+  return { data, error, notFound: settled && !error && data === undefined };
 }

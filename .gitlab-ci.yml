@@ -14,65 +14,67 @@ variables:
 stages:
   - validate
 
-validate:
-  stage: validate
-  variables:
-    GIT_DEPTH: "0" # full history -- the retirement-confirmation check needs `git worktree add` on an arbitrary base SHA, same as mr-diff-summary below
+default:
   before_script:
     - apk add --no-cache make git
+    - make docker-image
+
+.on-mr-or-default-branch: &on-mr-or-default-branch
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# One job per check, so they run in parallel: none needs another's result, only its own Makefile
+# prerequisites.
+validate:
+  stage: validate
+  parallel:
+    matrix:
+      - TARGET:
+          - fmt
+          - validate
+          - apply
+          - check-team-hierarchy
+          - check-reviewable-expiration
+          - check-scripts
   script:
-    - make fmt
-    - make validate
-    - make check-team-hierarchy
+    - make $TARGET
+  rules: *on-mr-or-default-branch
+
+validate-retirement-confirmations:
+  stage: validate
+  variables:
+    GIT_DEPTH: "0" # full history -- the check needs `git worktree add` on an arbitrary base SHA, same as mr-diff-summary below
+  script:
     - make check-retirement-confirmations BASE_SHA="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}"
-    - make check-reviewable-expiration
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  rules: *on-mr-or-default-branch
 
 # Separate from `validate` on purpose -- delete this job if examples/ goes away.
 validate-examples:
   stage: validate
-  before_script:
-    - apk add --no-cache make git
   script:
     - make check-examples
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  rules: *on-mr-or-default-branch
 
 # Same reasoning as validate-examples -- delete this job if tools/orgapi goes away.
 validate-orgapi:
   stage: validate
-  before_script:
-    - apk add --no-cache make git
   script:
     - make check-orgapi
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  rules: *on-mr-or-default-branch
 
 # Same reasoning as validate-examples -- delete this job if tools/orgviewer goes away.
 validate-orgviewer:
   stage: validate
-  before_script:
-    - apk add --no-cache make git
   script:
     - make check-orgviewer
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  rules: *on-mr-or-default-branch
 
 # Same reasoning as validate-examples -- delete this job if tools/orgconfluence goes away.
 validate-orgconfluence:
   stage: validate
-  before_script:
-    - apk add --no-cache make git
   script:
     - make check-orgconfluence
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  rules: *on-mr-or-default-branch
 
 # GitHub equivalent: pr-diff-summary.yml, calling the same diff-summary/post-review-comment
 # targets with different PLATFORM/env values. Needs a GITLAB_MR_TOKEN CI/CD variable (project
@@ -82,8 +84,6 @@ mr-diff-summary:
   stage: validate
   variables:
     GIT_DEPTH: "0" # full history -- `git worktree add` needs an arbitrary base SHA, which a shallow clone may lack
-  before_script:
-    - apk add --no-cache make git
   script:
     - make diff-summary BASE_SHA="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
     - make post-review-comment PLATFORM=gitlab

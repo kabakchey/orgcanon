@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { TreePicker, resetTreePickerMemory } from "../../src/components/tree-picker";
-import type { TreeItem } from "../../src/lib/picker/tree";
+import { findItem, type TreeItem } from "../../src/lib/picker/tree";
+import { usePickedParam } from "../../src/lib/use-picked-param";
 
 function leaf(key: string, label: string): TreeItem {
   return { key, value: key, label, children: [] };
@@ -32,10 +33,15 @@ function LocationDisplay() {
   );
 }
 
+function UrlBoundPicker({ fallbackId }: { fallbackId?: string }) {
+  const [value, select] = usePickedParam("teamId", (id) => findItem(tree, id) !== undefined, fallbackId);
+  return <TreePicker label="Team" tree={tree} value={value} onChange={select} />;
+}
+
 function renderPicker(url: string, fallbackId?: string) {
   render(
     <MemoryRouter initialEntries={[url]}>
-      <TreePicker label="Team" paramName="teamId" tree={tree} fallbackId={fallbackId} />
+      <UrlBoundPicker fallbackId={fallbackId} />
       <LocationDisplay />
     </MemoryRouter>
   );
@@ -127,7 +133,7 @@ describe("TreePicker", () => {
   it("says there is nothing to select when the tree itself is empty", async () => {
     render(
       <MemoryRouter>
-        <TreePicker label="Component" paramName="componentId" tree={[]} />
+        <TreePicker label="Component" tree={[]} value={undefined} onChange={() => {}} />
       </MemoryRouter>
     );
     await userEvent.click(screen.getByRole("button", { name: /^Component:/ }));
@@ -163,20 +169,5 @@ describe("TreePicker", () => {
     await userEvent.click(trigger());
 
     expect(rowNames()).not.toContain("Alpha Sub");
-  });
-
-  it("offers a Clear row only when there is a selection and no fallback", async () => {
-    renderPicker("/?teamId=zeta");
-    await userEvent.click(trigger());
-    await userEvent.click(screen.getByRole("button", { name: "Clear" }));
-
-    expect(screen.getByTestId("location").textContent).toBe("");
-  });
-
-  it("has no Clear row when a fallback exists", async () => {
-    renderPicker("/?teamId=zeta", "root");
-    await userEvent.click(trigger());
-
-    expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
   });
 });

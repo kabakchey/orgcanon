@@ -1,21 +1,16 @@
 import { Fragment, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
-import type { OrgData } from "../lib/orgapi/types";
+import { EntityLink } from "./entity-link";
 import { cellText, type CellValue, type Column, type TableRow } from "../lib/table/derive-table";
 import type { Filters, Sort } from "../lib/table/filter-sort";
 
-function entityLink(target: keyof OrgData, id: string): ReactNode {
-  return <Link to={`/entities/${target}?id=${encodeURIComponent(id)}`}>{id}</Link>;
-}
-
 function cellContent(column: Column, value: CellValue | undefined): ReactNode {
   const target = column.target;
-  if (target && typeof value === "string" && value) return entityLink(target, value);
+  if (target && typeof value === "string" && value) return <EntityLink entityKey={target} id={value} />;
   if (target && Array.isArray(value)) {
     return value.map((id, index) => (
       <Fragment key={id}>
         {index > 0 && "; "}
-        {entityLink(target, id)}
+        <EntityLink entityKey={target} id={id} />
       </Fragment>
     ));
   }

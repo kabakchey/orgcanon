@@ -1,6 +1,6 @@
 import type { Team } from "../orgapi/types";
 
-export interface LineManagerLink {
+interface LineManagerLink {
   managerId: string;
   // False when the link runs through a team (or, for a head, its parent team) with
   // is_hierarchical = false.

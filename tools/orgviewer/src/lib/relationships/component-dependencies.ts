@@ -1,35 +1,18 @@
-import type { Edge } from "@xyflow/react";
-import { reachableFrom } from "./graph-reachability";
+import { reachableFrom, type Link } from "./graph-reachability";
 import type { Component } from "../orgapi/types";
 
-export interface ComponentGraphEdge {
-  from: string;
-  to: string;
+// One link per dependency, pointing from a component to what it depends on.
+export function dependencyLinks(components: Record<string, Component>): Link[] {
+  return Object.entries(components).flatMap(([id, component]) =>
+    component.dependency_components.map((dependencyId) => ({ source: id, target: dependencyId }))
+  );
 }
 
-export function buildComponentDependencyGraph(components: Record<string, Component>): {
-  nodeIds: string[];
-  edges: ComponentGraphEdge[];
-} {
-  const nodeIds = Object.keys(components);
-  const edges: ComponentGraphEdge[] = [];
-  for (const [id, component] of Object.entries(components)) {
-    for (const dependencyId of component.dependency_components) {
-      edges.push({ from: id, to: dependencyId });
-    }
-  }
-  return { nodeIds, edges };
+function reversed(links: Link[]): Link[] {
+  return links.map((link) => ({ source: link.target, target: link.source }));
 }
 
-function toFlowEdges(pairs: ComponentGraphEdge[]): Edge[] {
-  return pairs.map(({ from, to }) => ({ id: `${from}->${to}`, source: from, target: to }));
-}
-
-function reversed(edges: Edge[]): Edge[] {
-  return edges.map((edge) => ({ id: edge.id, source: edge.target, target: edge.source }));
-}
-
-export interface DependencyCounts {
+interface DependencyCounts {
   direct: number;
   transitive: number;
   directDependees: number;
@@ -43,15 +26,13 @@ export function computeDependencyCounts(
   componentId: string,
   components: Record<string, Component>
 ): DependencyCounts {
-  const { edges } = buildComponentDependencyGraph(components);
-  const forward = toFlowEdges(edges);
-  const backward = reversed(forward);
+  const forward = dependencyLinks(components);
 
   return {
     direct: components[componentId]?.dependency_components.length ?? 0,
     transitive: reachableFrom(componentId, forward).size,
-    directDependees: edges.filter((edge) => edge.to === componentId).length,
-    transitiveDependees: reachableFrom(componentId, backward).size,
+    directDependees: forward.filter((link) => link.target === componentId).length,
+    transitiveDependees: reachableFrom(componentId, reversed(forward)).size,
   };
 }
 
@@ -72,8 +53,6 @@ export function relatedComponentIds(
     return new Set([...dependencies, ...dependees]);
   }
 
-  const { edges } = buildComponentDependencyGraph(components);
-  const forward = toFlowEdges(edges);
-  const backward = reversed(forward);
-  return new Set([...reachableFrom(componentId, forward), ...reachableFrom(componentId, backward)]);
+  const forward = dependencyLinks(components);
+  return new Set([...reachableFrom(componentId, forward), ...reachableFrom(componentId, reversed(forward))]);
 }

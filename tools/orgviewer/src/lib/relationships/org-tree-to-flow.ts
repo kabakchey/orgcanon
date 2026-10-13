@@ -1,7 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
-import { EDGE_STYLE, lineManagementStyle } from "../../components/edge-styles";
+import { EDGE_STYLE, lineManagementStyle } from "./edge-styles";
+import { authorityDeputyEdges, authorityEdge, flowEdge, personNode, teamNode } from "./flow-elements";
 import { teamEdgeStyle } from "./team-edge-style";
-import type { LayoutDirection } from "../../components/layout";
 import { getAuthorityLinesForTeam } from "./authority";
 import { currentPositionTitle } from "./person-position";
 import { deputyTitle, headDeputyTitle, headTitle, memberTitle, withInterimSuffix } from "./interim";
@@ -11,9 +11,8 @@ export function findRootTeamId(teams: Record<string, Team>): string | undefined 
   return Object.entries(teams).find(([, team]) => team.parent_team === null)?.[0];
 }
 
-export interface OrgTreeToFlowOptions {
-  // Team membership (head/deputy/members) nodes and edges -- on by default since that's the
-  // tree's original, always-on content.
+interface OrgTreeToFlowOptions {
+  // Team membership (head/deputy/members) nodes and edges.
   showPeople?: boolean;
   // Authority-line holders layered on top, same edge style as Authority Over's -- off by default
   // since most teams have none and the tree is busy enough already.
@@ -25,7 +24,6 @@ export interface OrgTreeToFlowOptions {
 export function orgTreeToFlow(
   teams: Record<string, Team>,
   people: Record<string, Person>,
-  direction: LayoutDirection = "DOWN",
   options: OrgTreeToFlowOptions = {}
 ): { nodes: Node[]; edges: Edge[] } {
   const {
@@ -42,40 +40,21 @@ export function orgTreeToFlow(
     if (includedPersonIds.has(personId)) return;
     includedPersonIds.add(personId);
     const person = people[personId];
-    nodes.push({
-      id: `person:${personId}`,
-      type: "person",
-      data: {
-        label: person?.name ?? personId,
-        positionTitle: currentPositionTitle(person),
-        documentationUrl: person?.documentation_url,
-        direction,
-      },
-      position: { x: 0, y: 0 },
-    });
+    nodes.push(personNode(personId, person, { positionTitle: currentPositionTitle(person) }));
   }
 
   for (const [teamId, team] of Object.entries(teams)) {
-    nodes.push({
-      id: `team:${teamId}`,
-      type: "team",
-      data: {
-        label: team.name,
-        type: team.type,
-        description: team.description,
-        documentationUrl: team.documentation_url,
-        direction,
-      },
-      position: { x: 0, y: 0 },
-    });
+    nodes.push(teamNode(teamId, team));
 
     if (team.parent_team) {
-      edges.push({
-        id: `hierarchy:${team.parent_team}->${teamId}`,
-        source: `team:${team.parent_team}`,
-        target: `team:${teamId}`,
-        style: teamEdgeStyle(teams[team.parent_team], team),
-      });
+      edges.push(
+        flowEdge(
+          `hierarchy:${team.parent_team}->${teamId}`,
+          `team:${team.parent_team}`,
+          `team:${teamId}`,
+          teamEdgeStyle(teams[team.parent_team], team)
+        )
+      );
     }
 
     if (showPeople) {
@@ -126,57 +105,39 @@ export function orgTreeToFlow(
       });
 
       if (team.head_deputy) {
-        edges.push({
-          id: `deputy:${teamId}:${team.head}->${team.head_deputy}`,
-          source: `person:${team.head}`,
-          target: `person:${team.head_deputy}`,
-          style: lineManagementStyle(team.is_hierarchical),
-          label: withInterimSuffix("Deputy", team.is_head_deputy_interim ?? false),
-        });
+        edges.push(
+          flowEdge(
+            `deputy:${teamId}:${team.head}->${team.head_deputy}`,
+            `person:${team.head}`,
+            `person:${team.head_deputy}`,
+            lineManagementStyle(team.is_hierarchical),
+            withInterimSuffix("Deputy", team.is_head_deputy_interim ?? false)
+          )
+        );
       }
       team.members.forEach((member, index) => {
         if (!member.deputy) return;
-        edges.push({
-          id: `deputy:${teamId}:${member.person}->${member.deputy}:${index}`,
-          source: `person:${member.person}`,
-          target: `person:${member.deputy}`,
-          style: EDGE_STYLE.membership,
-          label: withInterimSuffix("Deputy", member.is_deputy_interim ?? false),
-        });
+        edges.push(
+          flowEdge(
+            `deputy:${teamId}:${member.person}->${member.deputy}:${index}`,
+            `person:${member.person}`,
+            `person:${member.deputy}`,
+            EDGE_STYLE.membership,
+            withInterimSuffix("Deputy", member.is_deputy_interim ?? false)
+          )
+        );
       });
     }
 
     if (showAuthorityLines) {
       for (const line of getAuthorityLinesForTeam(teamId, authorityLines)) {
         ensurePersonNode(line.person);
-        edges.push({
-          id: `authority:${line.person}->${teamId}`,
-          source: `person:${line.person}`,
-          target: `team:${teamId}`,
-          style: EDGE_STYLE.authority,
-          label: withInterimSuffix(authorityLineTypes[line.type]?.title ?? line.type, line.is_interim),
-        });
-        if (line.deputy) {
-          ensurePersonNode(line.deputy);
-          edges.push({
-            id: `authority-deputy:${line.deputy}->${teamId}`,
-            source: `person:${line.deputy}`,
-            target: `team:${teamId}`,
-            style: EDGE_STYLE.authority,
-            label: withInterimSuffix(deputyTitle(authorityLineTypes[line.type]?.title ?? line.type), line.is_deputy_interim ?? false),
-          });
-          // An AuthorityLine spanning several teams is visited once per team, but its holder->deputy
-          // link is one relationship.
-          const deputyEdgeId = `deputy:authority:${line.person}->${line.deputy}:${line.type}`;
-          if (!edges.some((edge) => edge.id === deputyEdgeId)) {
-            edges.push({
-              id: deputyEdgeId,
-              source: `person:${line.person}`,
-              target: `person:${line.deputy}`,
-              style: EDGE_STYLE.authority,
-              label: withInterimSuffix("Deputy", line.is_deputy_interim ?? false),
-            });
-          }
+        edges.push(authorityEdge(teamId, line, authorityLineTypes));
+        if (line.deputy) ensurePersonNode(line.deputy);
+        // An AuthorityLine spanning several teams is visited once per team, but its holder->deputy
+        // link is one relationship.
+        for (const edge of authorityDeputyEdges(teamId, line, authorityLineTypes)) {
+          if (!edges.some((existing) => existing.id === edge.id)) edges.push(edge);
         }
       }
     }

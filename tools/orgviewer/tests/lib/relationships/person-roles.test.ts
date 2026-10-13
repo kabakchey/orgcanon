@@ -1,31 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collectPersonRoles, derivePersonCardRoles } from "../../../src/lib/relationships/person-roles";
 import type { Team } from "../../../src/lib/orgapi/types";
-
-function team(overrides: Partial<Team> & { head: string }): Team {
-  return {
-    name: "T",
-    type: "squad",
-    description: "",
-    documentation_url: "",
-    contact_email: "t@example.com",
-    parent_team: null,
-    head_title: "Head",
-    head_deputy: null,
-    head_deputy_title: null,
-    is_head_primary_team: true,
-    is_head_deputy_primary_team: null,
-    is_head_interim: false,
-    is_head_deputy_interim: null,
-    external_references: {},
-    members: [],
-    reviewable: { expiration_date: "2027-01-01", notes: "", owner: "x" },
-    is_hierarchical: false,
-    is_cross_functional: false,
-    is_temporary: false,
-    ...overrides,
-  };
-}
+import { team } from "../../fixtures/entities";
 
 describe("collectPersonRoles", () => {
   it("collects one role per matching team, including multiple member entries in the same team", () => {

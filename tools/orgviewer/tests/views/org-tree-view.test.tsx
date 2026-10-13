@@ -2,20 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Edge, Node } from "@xyflow/react";
 import { clearEntityCache } from "../../src/lib/orgapi/cache";
+import { graphCanvasCalls } from "../fixtures/graph-canvas-mock";
 import { installMockOrgapiFetch } from "../fixtures/mock-orgapi-fetch";
 import { findPickerTrigger } from "../fixtures/tree-picker";
 
-const { graphCanvasCalls } = vi.hoisted(() => ({
-  graphCanvasCalls: [] as Array<{ nodes: Node[]; edges: Edge[]; foldStorageKey?: string; selectedNodeId?: string }>,
-}));
-vi.mock("../../src/components/graph-canvas", () => ({
-  GraphCanvas: (props: { nodes: Node[]; edges: Edge[]; foldStorageKey?: string; selectedNodeId?: string }) => {
-    graphCanvasCalls.push(props);
-    return null;
-  },
-}));
+vi.mock("../../src/components/graph-canvas", () => import("../fixtures/graph-canvas-mock"));
+
 
 import { OrgTreeView } from "../../src/views/org-tree-view";
 
@@ -60,7 +53,7 @@ describe("OrgTreeView", () => {
     );
 
     await waitFor(() => expect(graphCanvasCalls.length).toBeGreaterThan(0));
-    expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.foldStorageKey).toBe("org-tree");
+    expect(graphCanvasCalls[graphCanvasCalls.length - 1]!.graphKey).toBe("org-tree");
   });
 
   it("defaults selectedNodeId to the root team when no teamId param is given", async () => {

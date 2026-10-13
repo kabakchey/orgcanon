@@ -6,9 +6,9 @@ A static single-page app that visualizes org structure (org tree, chain of comma
 team components, component dependencies) as react-flow graphs, plus a table of any entity type
 that exports to CSV. It has no backend of its own -- all data comes from
 [`orgapi`](../orgapi/README.md) over HTTP. It's a Vite/React SPA rather than the original Next.js
-design, since Org Viewer ships as a static bundle to an arbitrary static host with no server-side
-work left once OrgAPI exists to serve the data; its routes are hash-based under `/ui` so no
-host-specific rewrite/fallback config is needed. See
+design, since Org Viewer ships as a static bundle with no server-side work left once OrgAPI
+exists to serve the data -- OrgAPI can serve that bundle itself, or any static host can; its
+routes are hash-based under `/ui` so no host-specific rewrite/fallback config is needed. See
 [`../../docs/architecture.md`](../../docs/architecture.md#key-design-decisions) for the full
 reasoning.
 
@@ -18,10 +18,18 @@ reasoning.
 make install   # pnpm install
 make dev       # vite dev server with HMR, http://127.0.0.1:5173/ui/
 make build     # tsc --noEmit && vite build -> dist/, a static bundle deployable as-is
+make lint      # eslint
+make typecheck # tsc --noEmit, tests included
 make test      # pnpm test (vitest)
+make check     # lint + typecheck + test -- what `make check-orgviewer` at the repo root, CI and pre-commit run
 ```
 
-`dist/` needs no server-side logic to serve -- any static file host works (S3, a CDN, a plain
+These run inside the image built by the root `make docker-image`, which has to exist first --
+no target here builds it.
+
+`dist/` needs no server-side logic to serve. OrgAPI serves it under `/ui` when its `VIEWER_DIR`
+points at the bundle (see [its README](../orgapi/README.md#serving-org-viewer)) -- the image
+from the root Dockerfile has one built in. Any static file host works too (S3, a CDN, a plain
 `vite preview`, etc.), as long as it serves `dist/index.html` for the one real path
 (`/ui/index.html`); the hash-based router handles everything after `#` client-side, so no
 rewrite/fallback rule is required.
@@ -29,9 +37,8 @@ rewrite/fallback rule is required.
 ## Pointing it at OrgAPI
 
 OrgAPI's URL is set in the app itself (top of every page), not baked in at build time: it
-defaults to `<current origin>/api` (i.e. Org Viewer and OrgAPI are assumed to be fronted by the
-same host, split by path -- `/ui` for this app, `/api` for OrgAPI), and can be overridden by
-hand. An override is saved to the browser's `localStorage` and reused on future loads.
+defaults to the current origin (right when OrgAPI itself is serving this app under `/ui`, its
+own routes being rooted at `/`), and can be overridden by hand. An override is saved to the browser's `localStorage` and reused on future loads.
 
 In local dev, the default guess is wrong (Vite's dev server and a locally-running OrgAPI are on
 different ports) -- type the real URL (e.g. `http://127.0.0.1:8387`, from OrgAPI's own `make dev`)

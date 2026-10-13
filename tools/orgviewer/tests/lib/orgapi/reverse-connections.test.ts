@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   reverseConnectionSourceKeysFor,
   reverseConnectionsFor,
-} from "../../../src/lib/orgapi/direct-connections";
+} from "../../../src/lib/orgapi/reverse-connections";
 
 describe("reverseConnectionSourceKeysFor", () => {
   it("lists only the collections a given entity type's reverse connections actually need", () => {

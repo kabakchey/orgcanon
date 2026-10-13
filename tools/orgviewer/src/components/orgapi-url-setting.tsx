@@ -6,14 +6,13 @@ export function OrgapiUrlSetting() {
   const isSaved = value === getOrgapiBaseUrl();
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div className="orgapi-url-setting">
+      <label>
         OrgAPI URL:
         <input
           type="text"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          style={{ width: 220 }}
         />
       </label>
       <button

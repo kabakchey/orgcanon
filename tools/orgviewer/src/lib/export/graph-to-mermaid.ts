@@ -1,7 +1,8 @@
 import type { Edge, Node } from "@xyflow/react";
-import type { LayoutDirection } from "../../components/layout";
+import type { LayoutDirection } from "../layout/elk-layout";
+import { DEPENDENCY_COUNTS, type FlowNode } from "../relationships/flow-elements";
 
-export interface GraphToMermaidOptions {
+interface GraphToMermaidOptions {
   direction: LayoutDirection;
   // Resolves a CSS custom property (e.g. "--node-team-bg") to its currently active literal
   // value -- mermaid needs real colors, not var() references, and reading it live (rather than
@@ -29,57 +30,35 @@ function sanitizeId(id: string): string {
   return id.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value ? value : undefined;
-}
-
-function nodeLines(node: Node): string[] {
-  const data = (node.data ?? {}) as Record<string, unknown>;
-  const lines: string[] = [asString(data.label) ?? node.id];
+function nodeLines(node: FlowNode): string[] {
+  const lines: string[] = [node.data.label || node.id];
+  const push = (line: string | null | undefined | false) => {
+    if (line) lines.push(line);
+  };
 
   if (node.type === "team") {
-    const type = asString(data.type);
-    if (type) lines.push(type);
-    const description = asString(data.description);
-    if (description) lines.push(description);
+    push(node.data.type);
+    push(node.data.description);
   } else if (node.type === "person") {
-    const teamName = asString(data.teamName);
-    if (teamName) lines.push(`Unit: ${teamName}`);
-    const primaryTitle = asString(data.primaryTitle);
-    if (primaryTitle) lines.push(`Role: ${primaryTitle}`);
-    const secondaryTitles = Array.isArray(data.secondaryTitles) ? (data.secondaryTitles as unknown[]) : [];
-    for (const title of secondaryTitles) {
-      const text = asString(title);
-      if (text) lines.push(text);
-    }
-    const positionTitle = asString(data.positionTitle);
-    if (positionTitle) lines.push(`Position: ${positionTitle}`);
+    const { teamName, primaryTitle, secondaryTitles, positionTitle } = node.data;
+    push(teamName && `Unit: ${teamName}`);
+    push(primaryTitle && `Role: ${primaryTitle}`);
+    (secondaryTitles ?? []).forEach(push);
+    push(positionTitle && `Position: ${positionTitle}`);
   } else if (node.type === "component") {
-    const type = asString(data.type);
-    if (type) lines.push(type);
-    const ownerTeamName = asString(data.ownerTeamName) ?? asString(data.ownerTeamId);
-    if (ownerTeamName) lines.push(ownerTeamName);
-
-    // → direct dependencies, ⇒ all dependencies (direct + transitive), ← direct dependees,
-    // ⇐ all dependees (direct + transitive) -- mirrors node-types.tsx's ComponentNode.
-    const countSpecs: Array<[string, string, unknown]> = [
-      ["→", "direct dependencies", data.directDependencies],
-      ["⇒", "all dependencies", data.transitiveDependencies],
-      ["←", "direct dependees", data.directDependees],
-      ["⇐", "all dependees", data.transitiveDependees],
-    ];
-    const counts = countSpecs
-      .filter((spec): spec is [string, string, number] => typeof spec[2] === "number")
-      .map(([icon, label, count]) => `${icon} ${count} ${label}`);
-    if (counts.length > 0) lines.push(counts.join(", "));
-
-    if (data.isEndUserFacing) lines.push("end-user-facing");
+    const data = node.data;
+    push(data.type);
+    push(data.ownerTeamName ?? data.ownerTeamId);
+    push(
+      DEPENDENCY_COUNTS.filter(({ field }) => data[field] !== undefined)
+        .map(({ icon, label, field }) => `${icon} ${data[field]} ${label}`)
+        .join(", ")
+    );
+    push(data.isEndUserFacing && "end-user-facing");
   }
 
-  if (data.folded) {
-    const direct = typeof data.directHiddenCount === "number" ? data.directHiddenCount : 0;
-    const total = typeof data.hiddenCount === "number" ? data.hiddenCount : 0;
-    lines.push(`${direct} direct / ${total} total hidden`);
+  if (node.data.folded) {
+    lines.push(`${node.data.directHiddenCount ?? 0} direct / ${node.data.hiddenCount ?? 0} total hidden`);
   }
 
   return lines;
@@ -106,9 +85,9 @@ export function graphToMermaid(nodes: Node[], edges: Edge[], options: GraphToMer
 
   for (const node of nodes) {
     const id = sanitizeId(node.id);
-    const label = nodeLines(node).map(escapeMermaidText).join("<br/>");
+    const label = nodeLines(node as FlowNode).map(escapeMermaidText).join("<br/>");
     lines.push(`${id}["${label}"]`);
-    const selected = Boolean((node.data as Record<string, unknown> | undefined)?.selected);
+    const selected = Boolean(node.data.selected);
     const typeClass = node.type ? NODE_TYPE_CLASS[node.type] : undefined;
     const className = selected ? "selectedNode" : typeClass;
     if (className) lines.push(`class ${id} ${className}`);

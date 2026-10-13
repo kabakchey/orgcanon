@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export interface CopyButtonProps {
+interface CopyButtonProps {
   getText: () => string;
   label: string;
   className?: string;

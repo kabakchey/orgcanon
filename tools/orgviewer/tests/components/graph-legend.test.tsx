@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { Edge } from "@xyflow/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { EDGE_STYLE } from "../../src/components/edge-styles";
+import { EDGE_STYLE } from "../../src/lib/relationships/edge-styles";
 import { GraphLegend, legendEntries } from "../../src/components/graph-legend";
 
 function edge(id: string, style: Edge["style"]): Edge {
