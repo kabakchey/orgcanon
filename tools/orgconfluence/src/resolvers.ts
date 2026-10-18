@@ -11,7 +11,7 @@ import { resolvePosition } from "./position/resolve";
 import type { Position, PositionView } from "./position/types";
 
 function orgApi(): OrgApi {
-  return createOrgApi({ baseUrl: process.env.ORGAPI_URL, secret: process.env.ORGAPI_SECRET }, fetch);
+  return createOrgApi({ baseUrl: process.env.ORGAPI_URL, headers: process.env.ORGAPI_HEADERS }, fetch);
 }
 
 // UTC, matching the "today" orgapi applies to authority lines.

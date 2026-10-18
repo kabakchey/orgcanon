@@ -3,12 +3,16 @@ import { createOrgApi, OrgApiError, type Fetch } from "../src/orgapi/client";
 
 type Call = { url: string; headers: Record<string, string> };
 
-function fakeFetch(responses: Record<string, { status: number; body?: unknown }>) {
+function fakeFetch(responses: Record<string, { status: number; body?: unknown; notJson?: true }>) {
   const calls: Call[] = [];
   const fetch: Fetch = async (url, init) => {
     calls.push({ url, headers: init.headers });
     const response = responses[url] ?? { status: 500 };
-    return { status: response.status, ok: response.status < 400, json: async () => response.body };
+    const json = async () => {
+      if (response.notJson) throw new SyntaxError("Unexpected token '<'");
+      return response.body;
+    };
+    return { status: response.status, ok: response.status < 400, json };
   };
   return { fetch, calls };
 }
@@ -16,20 +20,39 @@ function fakeFetch(responses: Record<string, { status: number; body?: unknown }>
 const BASE = "https://orgapi.example.com";
 
 describe("createOrgApi", () => {
-  it("sends the shared secret as a bearer token", async () => {
+  it("sends the configured headers on every request", async () => {
     const { fetch, calls } = fakeFetch({ [`${BASE}/teams`]: { status: 200, body: [] } });
+    const headers = JSON.stringify({ "CF-Access-Client-Id": "id.access", "CF-Access-Client-Secret": "s3cret" });
 
-    await createOrgApi({ baseUrl: BASE, secret: "s3cret" }, fetch).listTeams();
+    await createOrgApi({ baseUrl: BASE, headers }, fetch).listTeams();
 
-    expect(calls[0]?.headers).toEqual({ Authorization: "Bearer s3cret" });
+    expect(calls[0]?.headers).toEqual({ "CF-Access-Client-Id": "id.access", "CF-Access-Client-Secret": "s3cret" });
   });
 
-  it("sends no authorization header when no secret is configured", async () => {
+  it("sends no headers when none are configured", async () => {
     const { fetch, calls } = fakeFetch({ [`${BASE}/teams`]: { status: 200, body: [] } });
 
     await createOrgApi({ baseUrl: BASE }, fetch).listTeams();
 
     expect(calls[0]?.headers).toEqual({});
+  });
+
+  it.each(['{"Authorization": "Bearer s3cret"', '["s3cret"]', '{"X-Count": 3}', '"s3cret"'])(
+    "fails without sending or echoing anything when the headers are not a JSON object of strings: %s",
+    async (headers) => {
+      const { fetch, calls } = fakeFetch({ [`${BASE}/teams`]: { status: 200, body: [] } });
+
+      const failure = createOrgApi({ baseUrl: BASE, headers }, fetch).listTeams();
+
+      await expect(failure).rejects.toThrow(new OrgApiError("ORGAPI_HEADERS is not a JSON object of strings"));
+      expect(calls).toHaveLength(0);
+    }
+  );
+
+  it("fails with an OrgApiError when a proxy answers with something other than JSON", async () => {
+    const { fetch } = fakeFetch({ [`${BASE}/teams`]: { status: 200, notJson: true } });
+
+    await expect(createOrgApi({ baseUrl: BASE }, fetch).listTeams()).rejects.toBeInstanceOf(OrgApiError);
   });
 
   it("lists teams by name", async () => {

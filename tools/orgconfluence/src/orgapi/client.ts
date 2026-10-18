@@ -46,7 +46,8 @@ export type Fetch = (
   init: { headers: Record<string, string> }
 ) => Promise<{ status: number; ok: boolean; json(): Promise<unknown> }>;
 
-export type OrgApiSettings = { baseUrl?: string; secret?: string };
+/** `headers` is ORGAPI_HEADERS as set: a JSON object of request headers, sent on every request. */
+export type OrgApiSettings = { baseUrl?: string; headers?: string };
 
 export class OrgApiError extends Error {}
 
@@ -67,11 +68,28 @@ function positionFilters(position: PositionRef): Record<string, string> {
   return { kind: position.kind };
 }
 
-export function createOrgApi(settings: OrgApiSettings, fetch: Fetch): OrgApi {
-  const headers: Record<string, string> = settings.secret ? { Authorization: `Bearer ${settings.secret}` } : {};
+// The parse error is dropped: its message can quote the value, which holds credentials.
+function parseHeaders(raw: string | undefined): Record<string, string> {
+  if (!raw) return {};
+  let headers: unknown;
+  try {
+    headers = JSON.parse(raw);
+  } catch {
+    headers = null;
+  }
+  const isStringMap =
+    typeof headers === "object" &&
+    headers !== null &&
+    !Array.isArray(headers) &&
+    Object.values(headers).every((value) => typeof value === "string");
+  if (!isStringMap) throw new OrgApiError("ORGAPI_HEADERS is not a JSON object of strings");
+  return headers as Record<string, string>;
+}
 
+export function createOrgApi(settings: OrgApiSettings, fetch: Fetch): OrgApi {
   async function get(path: string): Promise<unknown | null> {
     if (!settings.baseUrl) throw new OrgApiError("ORGAPI_URL is not set");
+    const headers = parseHeaders(settings.headers);
     const url = `${settings.baseUrl.replace(/\/+$/, "")}${path}`;
     let response;
     try {
@@ -81,7 +99,11 @@ export function createOrgApi(settings: OrgApiSettings, fetch: Fetch): OrgApi {
     }
     if (response.status === 404) return null;
     if (!response.ok) throw new OrgApiError(`orgapi responded ${response.status}`);
-    return response.json();
+    try {
+      return await response.json();
+    } catch {
+      throw new OrgApiError("orgapi responded with something other than JSON, such as a proxy's login page");
+    }
   }
 
   return {

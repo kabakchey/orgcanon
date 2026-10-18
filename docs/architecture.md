@@ -355,9 +355,11 @@ just enough to know *why* the code looks the way it does before you change it.
   ([`external-references.md`](./external-references.md)) with the ones tooling reads marked: a
   freeform map only works as an integration point if everyone files an identifier under the same
   name.
-- **The secret protecting an exposed orgapi is checked in front of orgapi, not by it.**
-  orgconfluence needs orgapi reachable from the internet and sends a shared secret as a bearer
-  token; whatever proxy exposes orgapi rejects requests without it. orgapi stays
+- **The credentials protecting an exposed orgapi are checked in front of orgapi, not by it.**
+  orgconfluence needs orgapi reachable from the internet and sends whatever request headers its
+  deployment configures (a bearer token, Cloudflare Access service-token headers, an API key);
+  whatever proxy exposes orgapi rejects requests without them. The headers are configured as
+  data rather than as a choice of named schemes, so a new kind of proxy needs no code change. orgapi stays
   authentication-free for the callers on its own network — orgviewer runs in the browser and
   could not keep a secret anyway.
 - **orgapi can serve orgviewer's bundle itself, under `/ui`.** Pointing orgapi's `VIEWER_DIR`

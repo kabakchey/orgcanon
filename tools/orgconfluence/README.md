@@ -104,12 +104,14 @@ directory, starting with `npm install`: Forge packages the app from this directo
 `node_modules`, which `make check` never creates here -- it keeps its copy inside Docker. If Docker
 has left an empty, root-owned `node_modules` behind, remove it first.
 
-### 1. Expose orgapi, behind a shared secret
+### 1. Expose orgapi, behind a credential check
 
 Forge calls orgapi from Atlassian's servers, so orgapi needs a public HTTPS address. orgapi itself
 has no authentication -- it is built to sit on a trusted network -- so the check belongs on
-whatever exposes it. The macro sends `Authorization: Bearer <secret>` on every request; reject
-anything else there. With nginx, for example:
+whatever exposes it. The macro sends the headers in the `ORGAPI_HEADERS` variable (step 3) on
+every request; have whatever exposes orgapi reject requests without them.
+
+With nginx and a bearer token, for example:
 
 ```nginx
 location / {
@@ -118,7 +120,23 @@ location / {
 }
 ```
 
-Internal callers (orgviewer, MCP clients) keep reaching orgapi directly and need no secret.
+```sh
+ORGAPI_HEADERS='{"Authorization": "Bearer <secret>"}'
+```
+
+With Cloudflare Access, create a service token, give orgapi's Access application a policy with
+the *Service Auth* action that includes that token, and send the token's two headers:
+
+```sh
+ORGAPI_HEADERS='{"CF-Access-Client-Id": "<client-id>", "CF-Access-Client-Secret": "<client-secret>"}'
+```
+
+Cloudflare Access answers a request it rejects with a redirect to its login page rather than an
+error. The macro then shows orgapi as unavailable, the same as for any other failure. To have
+Access answer `401` instead, which is easier to spot in its logs, enable the application's option
+to return a 401 response for Service Auth policies.
+
+Internal callers (orgviewer, MCP clients) keep reaching orgapi directly and need no credentials.
 Restricting that address to
 [Atlassian's published IP ranges](https://support.atlassian.com/organization-administration/docs/ip-addresses-and-domains-for-atlassian-cloud-products/)
 as well is a sensible second layer.
@@ -144,7 +162,7 @@ a local change -- either works.
 
 ```sh
 forge variables set ORGAPI_URL https://orgapi.example.com
-forge variables set --encrypt ORGAPI_SECRET <secret>
+forge variables set --encrypt ORGAPI_HEADERS "$ORGAPI_HEADERS"   # from step 1
 forge variables set ORGVIEWER_URL https://org.example.com/ui   # optional; without it nothing is linked
 
 forge deploy
