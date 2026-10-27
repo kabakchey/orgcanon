@@ -228,3 +228,16 @@ def test_team_people_404s_for_unknown_team(client):
     response = client.get("/teams/no-such-team/people")
 
     assert response.status_code == 404
+
+
+def test_trailing_slash_is_served_like_the_bare_path(client):
+    response = client.get("/people/bob-santos/", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == "bob-santos"
+
+
+def test_unknown_path_with_trailing_slash_is_still_404(client):
+    response = client.get("/does-not-exist/", follow_redirects=False)
+
+    assert response.status_code == 404

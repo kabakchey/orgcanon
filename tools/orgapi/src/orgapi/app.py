@@ -17,8 +17,11 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_mcp import FastApiMCP
+from starlette.routing import Match, Router
+from starlette.types import ASGIApp, Receive, Scope, Send
 from pydantic import BaseModel, ConfigDict, create_model
 
 from .models import ENTITY_MODELS, TeamPerson
@@ -184,12 +187,40 @@ async def get_team_people(
     ]
 
 
+class _SlashAgnosticRouting:
+    """Serve `<path>/` and `<path>` alike when only one of them has a route.
+
+    Replaces Starlette's redirect_slashes, whose redirect is absolute and built from the Host
+    header -- behind a proxy that rewrites Host, it sends the browser to an unreachable hostname.
+    """
+
+    def __init__(self, app: ASGIApp, router: Router) -> None:
+        self.app = app
+        self.router = router
+
+    def _has_route(self, scope: Scope) -> bool:
+        return any(route.matches(scope)[0] != Match.NONE for route in self.router.routes)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope.get("path", "/")
+        if scope["type"] == "http" and path != "/" and not self._has_route(scope):
+            toggled = {**scope, "path": path.rstrip("/") if path.endswith("/") else path + "/"}
+            if self._has_route(toggled):
+                scope = toggled
+        await self.app(scope, receive, send)
+
+
 def _mount_viewer(app: FastAPI, viewer_dir: str) -> None:
     if not (Path(viewer_dir) / "index.html").is_file():
         raise RuntimeError(
             f"VIEWER_DIR={viewer_dir!r} has no index.html -- point it at orgviewer's build "
             "output, or unset it to run API-only"
         )
+    # Relative Location: an absolute one is built from the Host header, which a proxy may have
+    # rewritten to a hostname the browser cannot reach.
+    app.add_api_route(
+        "/", lambda: RedirectResponse("ui/"), methods=["GET", "HEAD"], include_in_schema=False
+    )
     app.mount("/ui", StaticFiles(directory=viewer_dir, html=True), name="viewer")
 
 
@@ -203,7 +234,9 @@ def create_app(viewer_dir: str | None = None) -> FastAPI:
         ),
         lifespan=lifespan,
         openapi_url="/spec",
+        redirect_slashes=False,
     )
+    app.add_middleware(_SlashAgnosticRouting, router=app.router)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
